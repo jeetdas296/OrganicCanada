@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="206" height="50" viewBox="0 0 206 50">
+  <defs>
+    <style>
+      .cls-1 {
+        font-size: 36px;
+        font-family: Azonix;
+      }
+
+      .cls-2 {
+        fill: #0f1938;
+        filter: url(#filter);
+      }
+
+      .cls-2, .cls-3 {
+        fill-rule: evenodd;
+      }
+
+      .cls-3, .cls-7 {
+        fill: #ff9a40;
+      }
+
+      .cls-4 {
+        fill: #02aabd;
+      }
+
+      .cls-5 {
+        fill: #00cdac;
+      }
+
+      .cls-6 {
+        fill: #072967;
+      }
+
+      .cls-8 {
+        fill: #fdfdfd;
+      }
+    </style>
+    <filter id="filter" x="0.125" y="1.313" width="205.406" height="47.813" filterUnits="userSpaceOnUse">
+      <feImage preserveAspectRatio="none" x="0.125" y="1.3125" width="205.406" height="47.813" result="image" xlink:href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMjA1LjQwNiIgaGVpZ2h0PSI0Ny44MTMiIHZpZXdCb3g9IjAgMCAyMDUuNDA2IDQ3LjgxMyI+CiAgPGRlZnM+CiAgICA8c3R5bGU+CiAgICAgIC5jbHMtMSB7CiAgICAgICAgZmlsbDogdXJsKCNsaW5lYXItZ3JhZGllbnQpOwogICAgICB9CiAgICA8L3N0eWxlPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJsaW5lYXItZ3JhZGllbnQiIHkxPSI0MC4xNzMiIHgyPSIyMDUuNDA2IiB5Mj0iNy42NCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9Ii0wLjI1IiBzdG9wLWNvbG9yPSIjMDJhYWJkIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMS4yNSIgc3RvcC1jb2xvcj0iIzAwY2RhYyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3QgY2xhc3M9ImNscy0xIiB3aWR0aD0iMjA1LjQwNiIgaGVpZ2h0PSI0Ny44MTMiLz4KPC9zdmc+Cg=="/>
+      <feComposite result="composite" operator="in" in2="SourceGraphic"/>
+      <feBlend result="blend" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+  <text id="Eatsie" class="cls-1" transform="translate(487.732 68.129) scale(1.027)">Eatsie</text>
+  <path class="cls-2" d="M38.532,29.4c0-10.679-7.808-19.455-19.192-19.455-11,0-19.229,8.42-19.229,19.586,0,11.109,8.282,19.585,19.229,19.585a18.975,18.975,0,0,0,18.4-13.232H27.2a8.8,8.8,0,0,1-7.864,4.3c-4.862,0-8.188-2.786-9.059-7.846H38.337a23.224,23.224,0,0,0,.194-2.939h0ZM19.339,18.5c4.5,0,7.753,2.458,9.17,6.99H10.544C11.708,21.1,14.876,18.5,19.339,18.5Zm55.216-7.564-1.071,3.543A18.079,18.079,0,0,0,61.3,9.943c-11.153,0-19.448,8.351-19.448,19.529,0,11.222,8.295,19.641,19.448,19.641a18.021,18.021,0,0,0,12.014-4.421l0.862,3.317h7.858V10.935H74.555Zm-12.434,28.7a9.863,9.863,0,0,1-10.1-10.161,10.1,10.1,0,1,1,20.2,0A9.846,9.846,0,0,1,62.121,39.633Zm46.3-.494c-3.651,0-5.711-2.06-5.711-5.642V19.049h10.061V10.991h-10.23V1.317h-1.916L85.981,16.883v2.166h6.7V34.826c0,8.226,5.012,13.238,13.168,13.238h7.122V39.139h-4.556Zm23.2,9.973c9.362,0,15.547-4.924,15.547-12.489,0-9.031-7.721-10.311-13.768-11.4-3.851-.7-7.016-1.273-7.016-3.744,0-2.122,1.842-3.552,4.962-3.552,3.5,0,5.561,1.454,5.6,4.4h9.512c-0.038-7.408-5.911-12.389-14.861-12.389S116.672,14.785,116.672,21.8c0,8.738,7.534,10.323,13.457,11.309,3.919,0.655,7.134,1.422,7.134,3.956,0,2.478-2.491,3.738-5.274,3.738-3.594,0-6.122-1.648-6.172-4.949h-9.774c0.05,7.945,6.267,13.256,15.572,13.256v0ZM205.532,29.4c0-10.679-7.808-19.455-19.193-19.455-11,0-19.229,8.42-19.229,19.586,0,11.109,8.283,19.585,19.229,19.585a18.975,18.975,0,0,0,18.4-13.232H194.2a8.8,8.8,0,0,1-7.864,4.3c-4.862,0-8.189-2.786-9.06-7.846h28.058a23.207,23.207,0,0,0,.194-2.939h0ZM186.339,18.5c4.5,0,7.753,2.458,9.17,6.99H177.543C178.708,21.1,181.876,18.5,186.339,18.5ZM152,24h10V48H152V24Z"/>
+  <path class="cls-3" d="M155.066,17.781S151.966,3.251,171.358.87c0,0,2.676,17.412-14.23,18.56,0,0,3.02-6.238,7.218-9.9C164.346,9.532,159.936,10.838,155.066,17.781Z"/>
+  <path class="cls-3" d="M153,16.75s-7.8-.357-7.012-9.486c0,0,9.622,1.24,8.043,8.455,0,0-1.583-3.24-4.537-4.125C149.5,11.594,153.079,15.688,153,16.75Z"/>
+  <rect class="cls-4" x="796.25" y="211.094" width="92.5" height="92.5"/>
+  <rect id="Rectangle_2_copy" data-name="Rectangle 2 copy" class="cls-5" x="909.531" y="211.094" width="92.469" height="92.5"/>
+  <rect id="Rectangle_2_copy_2" data-name="Rectangle 2 copy 2" class="cls-6" x="1022.81" y="211.094" width="92.47" height="92.5"/>
+  <rect id="Rectangle_2_copy_2-2" data-name="Rectangle 2 copy 2" class="cls-7" x="1136.09" y="211.094" width="92.47" height="92.5"/>
+  <rect id="Rectangle_2_copy_3" data-name="Rectangle 2 copy 3" class="cls-8" x="1264.09" y="211.094" width="92.47" height="92.5"/>
+</svg>
