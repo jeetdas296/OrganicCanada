@@ -256,6 +256,30 @@ export const deleteCustomerAddress = async (
       return { success: false, error: err.toString() }
     })
 }
+// 🟢 THE FETCH ENGINE: Connects Next.js to our custom Medusa endpoint
+export async function getCustomerSubscriptions(customerId: string) {
+  const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
+  const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+
+  try {
+    const response = await fetch(`${backendUrl}/store/subscriptions?customer_id=${customerId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-publishable-api-key": pubKey || "",
+      },
+      next: { revalidate: 0 } // Force fresh data on every load
+    })
+
+    if (!response.ok) throw new Error("Failed to load subscriptions")
+    
+    const data = await response.json()
+    return data.subscriptions || []
+  } catch (error) {
+    console.error("❌ Frontend fetch error:", error)
+    return []
+  }
+}
 
 export const updateCustomerAddress = async (
   currentState: Record<string, unknown>,

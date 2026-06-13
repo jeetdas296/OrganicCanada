@@ -6,7 +6,27 @@ import { signout } from "@lib/data/customer";
 
 
 export default async function Header({ customer, countryCode }: { customer: any; countryCode: string }) {  
-  
+  let productTypes = [];
+  try {
+    const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
+    const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000";
+
+    // 1. Fetch Product Types from the Storefront API
+    const res = await fetch(`${backendUrl}/store/product-types`, {
+      headers: {
+        "x-publishable-api-key": pubKey,
+      },
+      // Cache this data for 1 hour so it doesn't slow down your website
+      next: { revalidate: 3600 } 
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      productTypes = data.product_types || [];
+    }
+  } catch (error) {
+    console.error("Failed to fetch product types", error);
+  }
   async function handleLogout() {
     "use server";
     await signout(countryCode); 
@@ -54,6 +74,21 @@ export default async function Header({ customer, countryCode }: { customer: any;
               </a>
               <ul className="dropdown-menu">
                 <li><Link href="/listing" className="dropdown-item">All Product</Link></li>
+                {productTypes.length > 0 ? (
+          productTypes.map((type: any) => (
+            <li key={type.id}>
+              {/* This points to your listing page and passes the type ID so you can filter! */}
+              <Link 
+                href={`/${countryCode}/listing?type_id=${type.id}`} 
+                className="dropdown-item"
+              >
+                {type.value}
+              </Link>
+            </li>
+          ))
+        ) : (
+          <li><span className="dropdown-item text-muted small">No types found</span></li>
+        )}
               </ul>
             </li>
             <li className="nav-item dropdown">
@@ -87,6 +122,8 @@ export default async function Header({ customer, countryCode }: { customer: any;
                 <li><Link href="/jobs" className="dropdown-item">Jobs</Link></li>
                 <li><Link href="/contact" className="dropdown-item">Contact Us</Link></li>
                 <li><Link href="/cupons" className="dropdown-item">Cupons</Link></li>
+                <li><Link href="/sell-with-us" className="dropdown-item">Vendor</Link></li>
+                <li><Link href="/wholesale" className="dropdown-item">Wholesale</Link></li>
               </ul>
             </li>
           </ul>

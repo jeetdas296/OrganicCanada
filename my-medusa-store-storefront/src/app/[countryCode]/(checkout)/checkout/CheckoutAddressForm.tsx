@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { unlockStripe } from "./actions"; // 👈 Ensure this path points to your actions file
+import { sdk } from "@lib/config"; // 👈 Ensure this points to your Medusa JS SDK instance!
 
 export default function CheckoutAddressForm({ 
   savedAddresses, 
@@ -14,8 +15,10 @@ export default function CheckoutAddressForm({
   cart: any 
 }) {
   const router = useRouter();
+  const params = useParams();
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const urlCountryCode = (params.countryCode as string)?.toLowerCase() || "us";
 
   // 1. State to hold the current values of the form
   const [form, setForm] = useState({
@@ -27,7 +30,7 @@ export default function CheckoutAddressForm({
     postal_code: cart?.shipping_address?.postal_code || "",
     phone: customer?.phone || cart?.shipping_address?.phone || "",
     // Medusa strictly requires a country code to save an address and calculate shipping!
-    country_code: cart?.region?.countries?.[0]?.iso_2 || "us" 
+    country_code: cart?.region?.countries?.[0]?.iso_2 || urlCountryCode
   });
 
   // 2. Auto-fill from dropdown
@@ -45,11 +48,14 @@ export default function CheckoutAddressForm({
         province: address.province || "",
         postal_code: address.postal_code || "",
         phone: address.phone || customer?.phone || "",
-        country_code: address.country_code || form.country_code
+        country_code:
+  cart?.region?.countries?.[0]?.iso_2 ||
+  form.country_code
       });
     } else {
       setForm({ ...form, address_1: "", city: "", province: "", postal_code: "" });
     }
+    console.log("Selected Address:", address)
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,48 +75,16 @@ export default function CheckoutAddressForm({
       // STEP A: Save the shipping address to the Medusa cart
       const response = await fetch(`${backendUrl}/store/carts/${cart.id}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-publishable-api-key": pubKey
-        },
+        headers: { "Content-Type": "application/json", "x-publishable-api-key": pubKey },
         body: JSON.stringify({ shipping_address: form })
       });
 
       if (response.ok) {
         setIsSaved(true);
+        // STEP B: Generate a fresh Stripe session
+        await unlockStripe().catch(console.error);
         
-        try {
-          // STEP B: Look up the valid shipping options for this new address
-          const optionsRes = await fetch(`${backendUrl}/store/shipping-options?cart_id=${cart.id}`, {
-            headers: { "x-publishable-api-key": pubKey }
-          });
-          const optionsData = await optionsRes.json();
-
-          // STEP C: Auto-attach the first available shipping option to the cart
-          if (optionsData.shipping_options && optionsData.shipping_options.length > 0) {
-            await fetch(`${backendUrl}/store/carts/${cart.id}/shipping-methods`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-publishable-api-key": pubKey
-              },
-              body: JSON.stringify({ 
-                option_id: optionsData.shipping_options[0].id 
-              })
-            });
-            console.log("🚚 Shipping method auto-applied successfully!");
-          } else {
-            console.warn("⚠️ No shipping options exist in your Medusa Admin for this address!");
-          }
-
-          // STEP D: Generate a fresh Stripe session with the new total (Items + Shipping + Tax)
-          await unlockStripe();
-
-        } catch (setupErr) {
-          console.error("Failed to setup shipping or Stripe session:", setupErr);
-        }
-
-        // STEP E: Refresh the page so the Stripe box appears!
+        // STEP C: Refresh the page so page.tsx wakes up, sees the address, and attaches the shipping!
         router.refresh(); 
       }
     } catch (err) {
@@ -118,6 +92,9 @@ export default function CheckoutAddressForm({
     } finally {
       setIsSaving(false);
     }
+    console.log("Cart Region:", cart.region?.name)
+console.log("Allowed Countries:", cart.region?.countries)
+console.log("Submitting Country:", form.country_code)
   };
 
   return (
@@ -175,7 +152,7 @@ export default function CheckoutAddressForm({
           </div>
         </div>
 
-        {/* 🟢 THE MISSING SAVE BUTTON */}
+        {/* 🟢 THE SAVE BUTTON */}
         <div className="mt-4">
           <button 
             type="submit" 

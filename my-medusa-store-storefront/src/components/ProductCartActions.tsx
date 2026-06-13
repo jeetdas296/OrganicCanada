@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { addToCart } from "@lib/data/cart";
+import { convertToLocale } from "@lib/util/money"; // 🟢 IMPORT ADDED
 
 export default function ProductCardActions({ product, countryCode }: { product: any, countryCode: string }) {
   const [isAdding, setIsAdding] = useState(false);
@@ -50,24 +51,33 @@ export default function ProductCardActions({ product, countryCode }: { product: 
     }
   };
 
-  // 4. 🛡️ BULLETPROOF PRICE EXTRACTOR
+  // 4. 🛡️ BULLETPROOF PRICE EXTRACTOR (Upgraded for Multi-Currency)
   let price = "Price Unavailable";
   const variant = product?.variants?.[0];
 
   if (variant) {
     try {
+      let amount = 0;
+      let currencyCode = "eur"; // Default fallback
+
       // Scenario A: Medusa V2 (calculated_price is an object)
       if (typeof variant.calculated_price === 'object' && variant.calculated_price !== null) {
-        price = `$${Number(variant.calculated_price.calculated_amount || 0).toFixed(2)}`;
+        amount = variant.calculated_price.calculated_amount || 0;
+        currencyCode = variant.calculated_price.currency_code || currencyCode;
       }
-      // Scenario B: Medusa V1 (calculated_price is a plain string or number)
-      else if (variant.calculated_price !== undefined && variant.calculated_price !== null) {
-        price = `$${Number(variant.calculated_price).toFixed(2)}`;
-      }
-      // Scenario C: Price is hidden inside the prices array (usually in cents)
+      // Scenario B: Price is hidden inside the prices array (usually in cents)
       else if (variant.prices?.[0]?.amount !== undefined) {
-        price = `$${(Number(variant.prices[0].amount) / 100).toFixed(2)}`;
+        amount = variant.prices[0].amount;
+        currencyCode = variant.prices[0].currency_code || currencyCode;
       }
+      // Scenario C: Medusa V1 legacy fallback
+      else if (variant.calculated_price !== undefined && variant.calculated_price !== null) {
+        amount = Number(variant.calculated_price);
+      }
+
+      // 🟢 THE FIX: Let Medusa's helper format the final string with the right symbol!
+      price = convertToLocale({ amount, currency_code: currencyCode });
+      
     } catch (err) {
       console.error("Failed to parse price for:", product.title, err);
     }

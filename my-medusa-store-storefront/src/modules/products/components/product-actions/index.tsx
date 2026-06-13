@@ -3,7 +3,7 @@
 import { addToCart } from "@lib/data/cart"
 import { useIntersection } from "@lib/hooks/use-in-view"
 import { HttpTypes } from "@medusajs/types"
-import { Button } from "@medusajs/ui"
+import { Button, Input, Text } from "@medusajs/ui"
 import Divider from "@modules/common/components/divider"
 import OptionSelect from "@modules/products/components/product-actions/option-select"
 import { isEqual } from "lodash"
@@ -38,6 +38,11 @@ export default function ProductActions({
 
   const [options, setOptions] = useState<Record<string, string | undefined>>({})
   const [isAdding, setIsAdding] = useState(false)
+  const [personalizationText, setPersonalizationText] = useState("")
+  
+  const isPersonalizable =
+    product.metadata?.is_personalizable === "true" ||
+    product.metadata?.is_personalizable === true
   const countryCode = useParams().countryCode as string
 
   // If there is only 1 variant, preselect the options
@@ -126,11 +131,22 @@ export default function ProductActions({
 
     setIsAdding(true)
 
-    await addToCart({
+    const payload: {
+      variantId: string
+      quantity: number
+      countryCode: string
+      metadata?: Record<string, unknown>
+    } = {
       variantId: selectedVariant.id,
       quantity: 1,
       countryCode,
-    })
+    }
+
+    if (personalizationText) {
+      payload.metadata = { personalization: personalizationText }
+    }
+
+    await addToCart(payload)
 
     setIsAdding(false)
   }
@@ -161,6 +177,18 @@ export default function ProductActions({
         </div>
 
         <ProductPrice product={product} variant={selectedVariant} />
+
+        {isPersonalizable && (
+          <div className="flex flex-col gap-y-2 mb-2">
+            <Text className="txt-medium text-ui-fg-base font-semibold">Custom Engraving / Personalization</Text>
+            <Input
+              type="text"
+              value={personalizationText}
+              onChange={(e) => setPersonalizationText(e.target.value)}
+              placeholder="Enter your message..."
+            />
+          </div>
+        )}
 
         <Button
           onClick={handleAddToCart}

@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { listProducts } from "@lib/data/products";
 import AddToCartAction from "./AddToCartAction";
+import BundleIncludes from "./BundleIncludes";
+import { convertToLocale } from "@lib/util/money"; // 🟢 IMPORT ADDED
 
 type Props = {
   params: Promise<{ countryCode: string; handle: string }>
@@ -23,9 +25,13 @@ export default async function ProductDetailPage(props: Props) {
     notFound();
   }
 
-  // Format the price securely
-  const price = product.variants?.[0]?.calculated_price?.calculated_amount 
-    ? `$${product.variants[0].calculated_price.calculated_amount}` 
+  // 🟢 THE FIX: Safely extract currency code and use Medusa's formatter
+  const calculatedPriceObj = product.variants?.[0]?.calculated_price;
+  const price = calculatedPriceObj?.calculated_amount 
+    ? convertToLocale({ 
+        amount: calculatedPriceObj.calculated_amount, 
+        currency_code: calculatedPriceObj.currency_code || "eur" 
+      }) 
     : "Price unavailable";
 
   return (
@@ -69,8 +75,14 @@ export default async function ProductDetailPage(props: Props) {
                 {product.description || "No description provided."}
               </p>
 
+              {/* Bundle Components Section */}
+              <BundleIncludes productId={product.id} countryCode={params.countryCode} />
+
               {/* Our new Interactive Add To Cart Engine */}
-              <AddToCartAction variantId={product.variants[0]?.id} />
+              <AddToCartAction 
+                variantId={product.variants[0]?.id} 
+                isPersonalizable={product.metadata?.is_personalizable === "true" || product.metadata?.is_personalizable === true}
+              />
 
               <hr />
 

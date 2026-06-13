@@ -4,9 +4,10 @@ import { useState } from "react";
 import { addToCart } from "@lib/data/cart";
 import { useParams, useRouter } from "next/navigation";
 
-export default function AddToCartAction({ variantId }: { variantId: string }) {
+export default function AddToCartAction({ variantId, isPersonalizable }: { variantId: string, isPersonalizable?: boolean }) {
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [personalizationText, setPersonalizationText] = useState("");
   
   const params = useParams();
   const router = useRouter();
@@ -17,11 +18,22 @@ export default function AddToCartAction({ variantId }: { variantId: string }) {
     
     setIsAdding(true);
     try {
-      await addToCart({
+      const payload: {
+        variantId: string
+        quantity: number
+        countryCode: string
+        metadata?: Record<string, unknown>
+      } = {
         variantId,
         quantity,
         countryCode,
-      });
+      }
+
+      if (personalizationText) {
+        payload.metadata = { personalization: personalizationText }
+      }
+
+      await addToCart(payload);
       
       // Send them straight to the cart once added!
       router.push(`/${countryCode}/cart`);
@@ -34,8 +46,21 @@ export default function AddToCartAction({ variantId }: { variantId: string }) {
   };
 
   return (
-    <div className="d-flex gap-3 mb-4">
-      <div className="input-group" style={{ width: "130px" }}>
+    <div className="d-flex flex-column gap-3 mb-4">
+      {isPersonalizable && (
+        <div className="form-group">
+          <label className="fw-bold mb-2">Custom Engraving / Personalization</label>
+          <input 
+            type="text" 
+            className="form-control" 
+            placeholder="Enter your message..." 
+            value={personalizationText}
+            onChange={(e) => setPersonalizationText(e.target.value)}
+          />
+        </div>
+      )}
+      <div className="d-flex gap-3">
+        <div className="input-group" style={{ width: "130px" }}>
         <button 
           className="btn btn-outline-secondary" 
           type="button" 
@@ -58,13 +83,14 @@ export default function AddToCartAction({ variantId }: { variantId: string }) {
         </button>
       </div>
       
-      <button 
-        className="btn btn-success flex-grow-1 fw-bold py-2"
-        onClick={handleAddToCart}
-        disabled={isAdding}
-      >
-        {isAdding ? "ADDING..." : "+ ADD TO CART"}
-      </button>
+        <button 
+          className="btn btn-success flex-grow-1 fw-bold py-2"
+          onClick={handleAddToCart}
+          disabled={isAdding}
+        >
+          {isAdding ? "ADDING..." : "+ ADD TO CART"}
+        </button>
+      </div>
     </div>
   );
 }

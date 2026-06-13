@@ -1,11 +1,18 @@
 import Link from "next/link";
+// 🟢 1. Import your Widget! (Adjust this path to exactly where your widget is saved)
+import DigitalDownloadsWidget from "../../../../../modules/order/components/digital-downloads"; 
 
 // Next.js safely reads the URL parameters that Stripe attaches after payment
-export default async function OrderStatusPage(props: { searchParams: Promise<{ redirect_status?: string }> }) {
+export default async function OrderStatusPage(props: { 
+  searchParams: Promise<{ redirect_status?: string, order_id?: string }> 
+}) {
   const searchParams = await props.searchParams;
   
   // This is the status Stripe sends back (succeeded, failed, requires_action)
   const status = searchParams.redirect_status;
+  
+  // 🟢 2. We need the order ID from the URL to pass to the widget!
+  const orderId = searchParams.order_id; 
 
   // Default UI (Processing)
   let uiConfig = {
@@ -23,7 +30,7 @@ export default async function OrderStatusPage(props: { searchParams: Promise<{ r
       title: "Order Placed Successfully!",
       icon: "icofont-check-circled text-success",
       color: "success",
-      message: "Thank you for your order. Your payment was approved and your food is being prepared!",
+      message: "Thank you for your order. Your payment was approved!",
       buttonText: "Return to Menu",
       buttonLink: "/"
     };
@@ -36,7 +43,7 @@ export default async function OrderStatusPage(props: { searchParams: Promise<{ r
       color: "danger",
       message: "Your card was declined or the payment failed. No charges were made.",
       buttonText: "Try Another Card",
-      buttonLink: "back" // We will handle this in the UI
+      buttonLink: "back"
     };
   } 
   // 🟠 FRAUD / REQUIRES ACTION UI
@@ -55,7 +62,7 @@ export default async function OrderStatusPage(props: { searchParams: Promise<{ r
     <div className="bg-light min-vh-100 d-flex align-items-center justify-content-center py-5">
       <div className="container text-center">
         <div className="row justify-content-center">
-          <div className="col-md-6 col-lg-5">
+          <div className="col-md-8 col-lg-7"> {/* Made slightly wider to fit the widget nicely */}
             <div className="bg-white p-5 rounded-4 shadow-sm border">
               
               {/* Dynamic Icon */}
@@ -65,6 +72,13 @@ export default async function OrderStatusPage(props: { searchParams: Promise<{ r
               <h2 className="fw-bold mb-3">{uiConfig.title}</h2>
               <p className="text-muted mb-4">{uiConfig.message}</p>
               
+              {/* 🟢 3. THE WIDGET: Only show it if payment succeeded AND we have an order ID */}
+              {status === "succeeded" && orderId && (
+                <div className="mb-5 text-start">
+                  <DigitalDownloadsWidget orderId={orderId} />
+                </div>
+              )}
+
               {/* Dynamic Button */}
               {uiConfig.buttonLink === "back" ? (
                 <Link href="./../checkout" className={`btn btn-${uiConfig.color} w-100 py-3 fw-bold rounded-3`}>

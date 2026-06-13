@@ -63,7 +63,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
   const salesChannelModuleService = container.resolve(Modules.SALES_CHANNEL);
   const storeModuleService = container.resolve(Modules.STORE);
 
-  const countries = ["gb", "de", "dk", "se", "fr", "es", "it"];
+  const countries = ["gb", "de", "dk", "se", "fr", "es", "it", "us"];
 
   logger.info("Seeding store data...");
   const [store] = await storeModuleService.listStores();
@@ -120,9 +120,16 @@ export default async function seedDemoData({ container }: ExecArgs) {
           countries,
           payment_providers: ["pp_system_default"],
         },
+        {
+          name: "North America",
+          currency_code: "usd",
+          countries: ["us"],
+          payment_providers: ["pp_system_default", "stripe"], 
+        },
       ],
     },
   });
+  
   const region = regionResult[0];
   logger.info("Finished seeding regions.");
 
@@ -226,6 +233,10 @@ export default async function seedDemoData({ container }: ExecArgs) {
           },
           {
             country_code: "it",
+            type: "country",
+          },
+           {
+            country_code: "us",
             type: "country",
           },
         ],

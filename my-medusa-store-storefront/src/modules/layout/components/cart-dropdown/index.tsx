@@ -153,6 +153,11 @@ const CartDropdown = ({
                                   data-testid="cart-item-variant"
                                   data-value={item.variant}
                                 />
+                                {item.metadata?.personalization && (
+                                  <div className="text-ui-fg-subtle text-small-regular">
+                                    Personalization: {item.metadata.personalization as string}
+                                  </div>
+                                )}
                                 <span
                                   data-testid="cart-item-quantity"
                                   data-value={item.quantity}

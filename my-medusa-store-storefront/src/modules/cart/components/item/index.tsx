@@ -70,6 +70,11 @@ const Item = ({ item, type = "full", currencyCode }: ItemProps) => {
           {item.product_title}
         </Text>
         <LineItemOptions variant={item.variant} data-testid="product-variant" />
+        {item.metadata?.personalization && (
+          <Text className="txt-medium text-ui-fg-subtle">
+            Personalization: {item.metadata.personalization as string}
+          </Text>
+        )}
       </Table.Cell>
 
       {type === "full" && (

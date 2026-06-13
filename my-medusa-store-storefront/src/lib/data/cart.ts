@@ -118,10 +118,12 @@ export async function addToCart({
   variantId,
   quantity,
   countryCode,
+  metadata,
 }: {
   variantId: string
   quantity: number
   countryCode: string
+  metadata?: Record<string, unknown>
 }) {
   if (!variantId) {
     throw new Error("Missing variant ID when adding to cart")
@@ -143,6 +145,7 @@ export async function addToCart({
       {
         variant_id: variantId,
         quantity,
+        metadata,
       },
       {},
       headers
@@ -235,6 +238,39 @@ export async function setShippingMethod({
       revalidateTag(cartCacheTag)
     })
     .catch(medusaError)
+}
+
+// Add this right below your existing setShippingMethod function
+export async function setMultipleShippingMethods({
+  cartId,
+  shippingMethodIds, // 🟢 Now accepts an Array of IDs!
+}: {
+  cartId: string
+  shippingMethodIds: string[]
+}) {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  try {
+    // 🟢 Loop through the array and attach EVERY required shipping method to Medusa
+    for (const optionId of shippingMethodIds) {
+      await sdk.store.cart.addShippingMethod(
+        cartId, 
+        { option_id: optionId }, 
+        {}, 
+        headers
+      )
+    }
+
+    // 🟢 Revalidate the cache ONCE after all methods are attached
+    const cartCacheTag = await getCacheTag("carts")
+    revalidateTag(cartCacheTag)
+    
+    return { success: true }
+  } catch (error) {
+    return medusaError(error)
+  }
 }
 
 export async function initiatePaymentSession(
