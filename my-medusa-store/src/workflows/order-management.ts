@@ -65,7 +65,7 @@ export const routeFulfillmentStep = createStep(
     const fulfillmentService = container.resolve(Modules.FULFILLMENT)
 
     const fulfillment = await fulfillmentService.createFulfillment({
-      location_id: input.locationId,
+      location_id: input.locationId || await resolveLocationBySalesChannel(input.orderId, container),
       items: input.items,
       order_id: input.orderId,
       provider_id: "manual", // swap with your provider ID e.g. "shipstation"
@@ -158,3 +158,26 @@ export const processReturnWorkflow = createWorkflow(
     return new WorkflowResponse({ orderReturn })
   }
 )
+async function resolveLocationBySalesChannel(orderId: string, container: any) {
+  const query = container.resolve("query")
+  
+  // Get the order's sales channel
+  const { data: orders } = await query.graph({
+    entity: "order",
+    fields: ["id", "sales_channel_id", "sales_channel.*"],
+    filters: { id: orderId },
+  })
+  
+  const order = orders[0]
+  if (!order?.sales_channel_id) return null
+  
+  // Get the linked stock location for this sales channel
+  const { data: channels } = await query.graph({
+    entity: "sales_channel",
+    fields: ["id", "stock_locations.*"],
+    filters: { id: order.sales_channel_id },
+  })
+  
+  const location = channels[0]?.stock_locations?.[0]
+  return location?.id || null
+}

@@ -67,8 +67,9 @@ export async function getOrSetCart(countryCode: string) {
 
   if (!cart) {
     const locale = await getLocale()
+    const defaultChannelId = await getDefaultSalesChannelId()
     const cartResp = await sdk.store.cart.create(
-      { region_id: region.id, locale: locale || undefined },
+      { region_id: region.id, locale: locale || undefined, ...(defaultChannelId && { sales_channel_id: defaultChannelId }), },
       {},
       headers
     )
@@ -88,7 +89,28 @@ export async function getOrSetCart(countryCode: string) {
 
   return cart
 }
-
+async function getDefaultSalesChannelId(): Promise<string | undefined> {
+  try {
+    const response: any = await sdk.client.fetch("/store/sales-channels", {
+      method: "GET",
+      next: { revalidate: 3600 },
+      cache: "force-cache",
+    })
+    
+    // Find the default/webstore channel (not POS)
+    const defaultChannel = response.sales_channels?.find(
+      (channel: any) => 
+        channel.name.toLowerCase().includes("default") ||
+        channel.name.toLowerCase().includes("webstore") ||
+        channel.metadata?.is_default === true
+    )
+    
+    return defaultChannel?.id
+  } catch (err) {
+    console.error("[OMNICHANNEL] Failed to fetch sales channels:", err)
+    return undefined
+  }
+}
 export async function updateCart(data: HttpTypes.StoreUpdateCart) {
   const cartId = await getCartId()
 
