@@ -397,6 +397,85 @@ const vendorDraftOrderFilter = async (req: MedusaRequest, res: MedusaResponse, n
   }
   next()
 }
+// ════════════════════════════════════════════════════════════════
+// ADD THESE 2 FUNCTIONS to middlewares.ts
+// Paste them ABOVE the "export default defineMiddlewares" block
+// ════════════════════════════════════════════════════════════════
+
+// 🟢 OMS: VENDOR RETURN FILTER
+// Shows vendors only their own order returns
+const vendorReturnFilter = async (
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) => {
+  if (req.method !== "GET") return next()
+  const userId = (req as any).auth_context?.actor_id
+  if (!userId) return next()
+  const vendorId = await getVendorIdForUser(req, userId)
+  if (vendorId) {
+    const rawPath = req.originalUrl?.split("?")[0] || ""
+    const isListRoute =
+      rawPath === "/admin/returns" || rawPath === "/admin/returns/"
+    if (isListRoute) {
+      const query = req.scope.resolve("query")
+      const { data: products } = await query.graph({
+        entity: "product",
+        fields: ["id", "vendor.*"],
+      })
+      const vendorProductIds = products
+        .filter((p: any) => p.vendor?.id === vendorId)
+        .map((p: any) => p.id)
+      const { data: orders } = await query.graph({
+        entity: "order",
+        fields: ["id", "items.*", "items.product_id"],
+      })
+      const vendorOrderIds = orders
+        .filter((o: any) =>
+          o.items?.some((item: any) =>
+            vendorProductIds.includes(item.product_id)
+          )
+        )
+        .map((o: any) => o.id)
+      const targetIds =
+        vendorOrderIds.length > 0 ? vendorOrderIds : ["no-returns-yet"]
+      req.query = req.query || {}
+      req.query.order_id = targetIds
+      if (!(req as any).filterableFields) (req as any).filterableFields = {}
+      ;(req as any).filterableFields.order_id = targetIds
+    }
+  }
+  next()
+}
+
+// 🟢 OMNICHANNEL: POS CHANNEL FILTER
+// When ?channel=pos is passed, restricts catalog to POS sales channel
+const posChannelFilter = async (
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) => {
+  if (req.method !== "GET") return next()
+  const rawPath = req.originalUrl?.split("?")[0] || ""
+  const isPosRoute =
+    rawPath.startsWith("/store/products") && req.query.channel === "pos"
+  if (isPosRoute) {
+    const query = req.scope.resolve("query")
+    const { data: channels } = await query.graph({
+      entity: "sales_channel",
+      fields: ["id"],
+      filters: { name: "POS" }, // Change if you named your POS channel differently
+    })
+    const posChannelId = channels[0]?.id
+    if (posChannelId) {
+      req.query.sales_channel_id = [posChannelId]
+      if (!(req as any).filterableFields) (req as any).filterableFields = {}
+      ;(req as any).filterableFields.sales_channel_id = [posChannelId]
+    }
+  }
+  next()
+}
+
 
 export default defineMiddlewares({
   routes: [
@@ -437,6 +516,13 @@ export default defineMiddlewares({
     { matcher: "/admin/inventory-items/*", middlewares: [vendorInventoryFilter] },
     
     { matcher: "/admin/draft-orders", middlewares: [vendorDraftOrderFilter] },
-    { matcher: "/admin/draft-orders/*", middlewares: [vendorDraftOrderFilter] }
+    { matcher: "/admin/draft-orders/*", middlewares: [vendorDraftOrderFilter] },
+    { matcher: "/admin/returns", middlewares: [vendorReturnFilter] },
+    { matcher: "/admin/returns/*", middlewares: [vendorReturnFilter] },
+    {
+    matcher: "/store/products",
+    method: "GET",
+    middlewares: [posChannelFilter],
+  },
   ],
 })
