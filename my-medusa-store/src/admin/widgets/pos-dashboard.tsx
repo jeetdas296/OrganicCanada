@@ -84,7 +84,7 @@ const POSDashboardWidget = () => {
                   </td>
                   <td className="py-2">
                     {order.currency_code?.toUpperCase()}{" "}
-                    {((order.total || 0) / 100).toFixed(2)}
+                    {((order.total || 0)).toFixed(2)}
                   </td>
                 </tr>
               ))}

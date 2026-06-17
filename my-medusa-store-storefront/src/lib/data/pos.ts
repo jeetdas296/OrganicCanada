@@ -1,7 +1,18 @@
-"use server"
+const BACKEND_URL =
+  process.env.MEDUSA_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL ||
+  "http://localhost:9000"
 
-const BACKEND_URL = process.env.MEDUSA_BACKEND_URL || "http://localhost:9000"
-const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+// ✅ Use POS-specific publishable key if available, fallback to default
+const POS_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_POS_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY ||
+  ""
+
+const DEFAULT_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
+
+const REGION_ID = process.env.NEXT_PUBLIC_MEDUSA_REGION_ID || ""
 
 export interface POSOrderItem {
   variant_id: string
@@ -20,18 +31,32 @@ export interface CreatePOSOrderInput {
   pos_terminal_id?: string
 }
 
-function getHeaders() {
+// ✅ Use POS key for POS operations
+function getPOSHeaders() {
   return {
     "Content-Type": "application/json",
-    "x-publishable-api-key": PUBLISHABLE_KEY,
+    "x-publishable-api-key": POS_PUBLISHABLE_KEY,
+  }
+}
+
+// ✅ Use default key for browsing products
+function getStoreHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "x-publishable-api-key": DEFAULT_PUBLISHABLE_KEY,
   }
 }
 
 export async function createPOSOrder(input: CreatePOSOrderInput) {
   try {
-    const response = await fetch(`${BACKEND_URL}/store/pos/orders`, {
+    const url = `${BACKEND_URL}/store/pos/`
+
+    console.log("[POS] Creating order at:", url)
+    console.log("[POS] Using POS key:", POS_PUBLISHABLE_KEY ? "Set (" + POS_PUBLISHABLE_KEY.substring(0, 10) + "...)" : "MISSING")
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: getHeaders(),
+      headers: getPOSHeaders(),
       body: JSON.stringify({
         currency_code: input.currency_code || "eur",
         items: input.items,
@@ -41,15 +66,31 @@ export async function createPOSOrder(input: CreatePOSOrderInput) {
       }),
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || "Failed to create POS order")
+    console.log("[POS] Response status:", response.status)
+    console.log("[POS] Content-Type:", response.headers.get("content-type"))
+
+    // ✅ Get text first, then parse JSON
+    const responseText = await response.text()
+
+    let data
+    try {
+      data = JSON.parse(responseText)
+    } catch (parseError) {
+      console.error("[POS] HTML Response (first 300 chars):", responseText.substring(0, 300))
+      throw new Error(
+        "Backend returned HTML instead of JSON. " +
+        "This means the /store/pos/orders route does NOT exist on the backend. " +
+        "Create the file: my-medusa-store/src/api/store/pos/route.ts"
+      )
     }
 
-    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data.error || data.message || "Failed to create POS order (HTTP " + response.status + ")")
+    }
+
     return { success: true, data }
   } catch (error: any) {
-    console.error("[POS] Order creation failed:", error)
+    console.error("[POS] Order creation failed:", error.message)
     return { success: false, error: error.message }
   }
 }
@@ -57,19 +98,16 @@ export async function createPOSOrder(input: CreatePOSOrderInput) {
 export async function listPOSOrders(location?: string) {
   try {
     const url = location
-      ? `${BACKEND_URL}/store/pos/orders?location=${location}`
-      : `${BACKEND_URL}/store/pos/orders`
+      ? `${BACKEND_URL}/store/pos/?location=${location}`
+      : `${BACKEND_URL}/store/pos/`
 
     const response = await fetch(url, {
       method: "GET",
-      headers: getHeaders(),
+      headers: getPOSHeaders(),
     })
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch POS orders")
-    }
-
-    const data = await response.json()
+    const text = await response.text()
+    const data = JSON.parse(text)
     return { success: true, orders: data.pos_orders || [] }
   } catch (error: any) {
     console.error("[POS] Failed to fetch orders:", error)
@@ -82,14 +120,10 @@ export async function getDefaultRegion() {
   try {
     const response = await fetch(`${BACKEND_URL}/store/regions?limit=1`, {
       method: "GET",
-      headers: getHeaders(),
+      headers: getStoreHeaders(),
     })
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch regions")
-    }
-
-    const data = await response.json()
+    const text = await response.text()
+    const data = JSON.parse(text)
     return { success: true, region: data.regions?.[0] || null }
   } catch (error: any) {
     console.error("[POS] Failed to fetch regions:", error)
@@ -135,7 +169,7 @@ export async function searchProducts(query: string, regionId?: string) {
 
     const response = await fetch(url, {
       method: "GET",
-      headers: getHeaders(),
+      headers: getStoreHeaders(),
     })
 
     if (!response.ok) {
