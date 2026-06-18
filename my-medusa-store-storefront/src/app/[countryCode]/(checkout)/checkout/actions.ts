@@ -1,5 +1,5 @@
 "use server";
-import { updateCart, initiatePaymentSession, retrieveCart} from "@lib/data/cart";
+import { updateCart, initiatePaymentSession, retrieveCart } from "@lib/data/cart";
 import { retrieveCustomer } from "@lib/data/customer";
 import { revalidateTag } from "next/cache";
 // Inside your actions.ts file
@@ -14,6 +14,8 @@ export async function unlockStripe() {
     // 1. Fetch the cart so Medusa knows exactly which order to update
     const cart = await retrieveCart();
     if (!cart) return { success: false };
+    const regionCountry =
+      cart?.region?.countries?.[0]?.iso_2?.toLowerCase()
 
     const customer = await retrieveCustomer().catch(() => null);
     const emailToUse = customer ? customer.email : formData.get("email") || "guest@eatsie.com";
@@ -25,7 +27,7 @@ export async function unlockStripe() {
         last_name: "Doe",
         address_1: "123 Grocery Lane",
         city: "Foodville",
-        country_code: "dk", // Must match your active region!
+        country_code: regionCountry, // Must match your active region!
         postal_code: "10001",
       },
     });
@@ -33,10 +35,10 @@ export async function unlockStripe() {
     // 3. Tell Medusa to wake up Stripe and generate the secret password!
     try {
       // Standard Medusa approach
-      await initiatePaymentSession(cart, { provider_id: "stripe" }); 
+      await initiatePaymentSession(cart, { provider_id: "stripe" });
     } catch (e) {
       // Fallback for Medusa v2 module IDs
-      await initiatePaymentSession(cart, { provider_id: "pp_stripe_stripe" }); 
+      await initiatePaymentSession(cart, { provider_id: "pp_stripe_stripe" });
     }
 
     // 4. Refresh the Next.js page data so the Stripe box appears
@@ -45,7 +47,7 @@ export async function unlockStripe() {
   } catch (error: any) {
     // This forces Node.js to print the ENTIRE object to your terminal
     console.error("🚨 FULL MEDUSA ERROR 🚨:", JSON.stringify(error, null, 2));
-    
+
     // We can also print the raw error just in case it's not a JSON object
     console.log("RAW ERROR:", error);
 
@@ -58,11 +60,13 @@ export async function finalizeMedusaOrder(firstName: string, address: string) {
   try {
     const cart = await retrieveCart();
     if (!cart) return { success: false, error: "No active cart found." };
+    const regionCountry =
+      cart?.region?.countries?.[0]?.iso_2?.toLowerCase()
 
     const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
-    const headers = { 
+    const headers = {
       "Content-Type": "application/json",
-      "x-publishable-api-key": pubKey 
+      "x-publishable-api-key": pubKey
     };
 
     // 1. Overwrite the dummy data with the REAL address from the HTML form
@@ -72,10 +76,10 @@ export async function finalizeMedusaOrder(firstName: string, address: string) {
       body: JSON.stringify({
         shipping_address: {
           first_name: firstName,
-          last_name: "Customer", 
+          last_name: "Customer",
           address_1: address,
-          city: "Foodville", 
-          country_code: "dk", 
+          city: "Foodville",
+          country_code: regionCountry,
           postal_code: "1000",
         }
       })
@@ -84,31 +88,31 @@ export async function finalizeMedusaOrder(firstName: string, address: string) {
     // 🛡️ NEW: THE SHIPPING SAFETY NET
     // If we forgot to click a shipping method during testing, automatically attach the first one!
     // 🚚 THE SMART SHIPPING AUTO-SELECTOR
-if (!cart.shipping_methods || cart.shipping_methods.length === 0) {
-  const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
-  const headers = { "Content-Type": "application/json", "x-publishable-api-key": pubKey };
-  
-  const optionsRes = await fetch(`http://localhost:9000/store/shipping-options?cart_id=${cart.id}`, { headers });
-  const optionsData = await optionsRes.json();
-  
-  if (optionsData.shipping_options && optionsData.shipping_options.length > 0) {
-    
-    // 🟢 THE FIX: Try to find the free/digital option first!
-    const freeOrDigitalOption = optionsData.shipping_options.find((opt: any) => 
-      opt.amount === 0 || opt.name?.toLowerCase().includes("digital")
-    );
-    
-    // If it finds a free one, use it. Otherwise, fallback to the first available option.
-    const selectedOptionId = freeOrDigitalOption ? freeOrDigitalOption.id : optionsData.shipping_options[0].id;
+    if (!cart.shipping_methods || cart.shipping_methods.length === 0) {
+      const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
+      const headers = { "Content-Type": "application/json", "x-publishable-api-key": pubKey };
 
-    await fetch(`http://localhost:9000/store/carts/${cart.id}/shipping-methods`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ option_id: selectedOptionId })
-    });
-    // Remember to leave the cart = await retrieveCart() line here if it's in page.tsx!
-  }
-}
+      const optionsRes = await fetch(`http://localhost:9000/store/shipping-options?cart_id=${cart.id}`, { headers });
+      const optionsData = await optionsRes.json();
+
+      if (optionsData.shipping_options && optionsData.shipping_options.length > 0) {
+
+        // 🟢 THE FIX: Try to find the free/digital option first!
+        const freeOrDigitalOption = optionsData.shipping_options.find((opt: any) =>
+          opt.amount === 0 || opt.name?.toLowerCase().includes("digital")
+        );
+
+        // If it finds a free one, use it. Otherwise, fallback to the first available option.
+        const selectedOptionId = freeOrDigitalOption ? freeOrDigitalOption.id : optionsData.shipping_options[0].id;
+
+        await fetch(`http://localhost:9000/store/carts/${cart.id}/shipping-methods`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ option_id: selectedOptionId })
+        });
+        // Remember to leave the cart = await retrieveCart() line here if it's in page.tsx!
+      }
+    }
 
     // 2. The Magic Command: Tell Medusa to officially turn this Cart into an Order!
     const completeRes = await fetch(`http://localhost:9000/store/carts/${cart.id}/complete`, {
@@ -120,7 +124,7 @@ if (!cart.shipping_methods || cart.shipping_methods.length === 0) {
 
     if (completeData.type === "order") {
       // 🛑 NEXT.JS 15 FIX: We must "await" the cookies before deleting!
-      (await cookies()).delete("_medusa_cart_id"); 
+      (await cookies()).delete("_medusa_cart_id");
       return { success: true };
     } else {
       console.error("❌ Medusa Rejected Completion:", completeData);
@@ -170,14 +174,14 @@ export async function sniperCompleteOrder(cartId: string, clientPubKey: string, 
     if (hasDigitalItems) {
       console.log("🕵️ [SNIPER] Mixed Cart Detected. Fetching Digital Option...");
       const optionsRes = await fetch(`${backendUrl}/store/shipping-options?cart_id=${cartId}`, { headers });
-      
+
       if (optionsRes.ok) {
         const optionsData = await optionsRes.json();
         const digitalOption = optionsData.shipping_options?.find((opt: any) => opt.amount === 0);
 
         if (digitalOption) {
           console.log(`🎯 [SNIPER] Attaching Digital Shipping ID: ${digitalOption.id}`);
-          
+
           await fetch(`${backendUrl}/store/carts/${cartId}/shipping-methods`, {
             method: "POST", headers, body: JSON.stringify({ option_id: digitalOption.id })
           });
@@ -196,14 +200,14 @@ export async function sniperCompleteOrder(cartId: string, clientPubKey: string, 
     console.log("🚀 [SNIPER] Finalizing Order with Medusa...");
     const completeRes = await fetch(`${backendUrl}/store/carts/${cartId}/complete`, { method: "POST", headers });
     const responseText = await completeRes.text();
-    
+
     let completeData: any = {};
-    try { completeData = JSON.parse(responseText); } catch (e) {}
+    try { completeData = JSON.parse(responseText); } catch (e) { }
 
     if (completeRes.ok && completeData?.type === "order") {
       return { success: true, orderId: completeData.order.id };
-    } 
-    
+    }
+
     if (completeRes.ok) {
       const orderLookup = await fetch(`${backendUrl}/store/orders?cart_id=${cartId}`, { headers }).then(res => res.json());
       if (orderLookup.orders && orderLookup.orders.length > 0) {

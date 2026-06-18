@@ -30,7 +30,7 @@ export const retrieveOrder = async (id: string) => {
 }
 
 export const listOrders = async (
-  limit: number = 10,
+  limit: number = 100,
   offset: number = 0,
   filters?: Record<string, any>
 ) => {

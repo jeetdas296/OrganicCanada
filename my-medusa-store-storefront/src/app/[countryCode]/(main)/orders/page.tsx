@@ -6,8 +6,9 @@ import { retrieveCustomer } from "@lib/data/customer";
 import OrderHistory from "components/OrderHistory";
 import { redirect } from "next/navigation";
 
-export default async function OrdersPage(props: { params: Promise<{ countryCode: string }> }) {
+export default async function OrdersPage(props: { params: Promise<{ countryCode: string }>; searchParams: Promise<{ page?: string }> }) {
   const params = await props.params;
+  const searchParams = await props.searchParams;
   const countryCode = params.countryCode;
 
   // 1. Fetch the customer securely
@@ -29,9 +30,16 @@ export default async function OrdersPage(props: { params: Promise<{ countryCode:
     console.error("❌ Error fetching orders:", err);
     return null;
   });
-  
-  const orders = ordersResponse?.orders || ordersResponse?.data || (Array.isArray(ordersResponse) ? ordersResponse : []);
 
+  const orders = ordersResponse?.orders || ordersResponse?.data || (Array.isArray(ordersResponse) ? ordersResponse : []);
+  const itemsPerPage = 10;
+  const currentPage = parseInt(searchParams.page || "1", 10);
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
+
+  // Slice the array to get ONLY the 10 items for the current page
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = orders.slice(startIndex, endIndex);
   return (
     <>
       {/* Top Banner */}
@@ -44,18 +52,22 @@ export default async function OrdersPage(props: { params: Promise<{ countryCode:
 
       <section className="py-5 bg-light osahan-main-body min-vh-100">
         <div className="container">
-          
+
           {/* Back Button */}
           <div className="mb-4">
             <Link href={`/${countryCode}/profile`} className="btn btn-outline-success fw-bold px-4">
               <i className="icofont-arrow-left me-2"></i> Back to Profile
             </Link>
           </div>
-          
+
           {/* Main Content Area */}
           <div className="bg-white rounded-3 shadow-sm p-4 border">
             <h4 className="fw-bold mb-4">Order History</h4>
-            <OrderHistory orders={orders} />
+            <OrderHistory
+              orders={paginatedOrders}
+              currentPage={currentPage}
+              totalPages={totalPages}
+            />
           </div>
 
         </div>

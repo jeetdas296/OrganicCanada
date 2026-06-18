@@ -96,15 +96,15 @@ async function getDefaultSalesChannelId(): Promise<string | undefined> {
       next: { revalidate: 3600 },
       cache: "force-cache",
     })
-    
+
     // Find the default/webstore channel (not POS)
     const defaultChannel = response.sales_channels?.find(
-      (channel: any) => 
+      (channel: any) =>
         channel.name.toLowerCase().includes("default") ||
         channel.name.toLowerCase().includes("webstore") ||
         channel.metadata?.is_default === true
     )
-    
+
     return defaultChannel?.id
   } catch (err) {
     console.error("[OMNICHANNEL] Failed to fetch sales channels:", err)
@@ -278,9 +278,9 @@ export async function setMultipleShippingMethods({
     // 🟢 Loop through the array and attach EVERY required shipping method to Medusa
     for (const optionId of shippingMethodIds) {
       await sdk.store.cart.addShippingMethod(
-        cartId, 
-        { option_id: optionId }, 
-        {}, 
+        cartId,
+        { option_id: optionId },
+        {},
         headers
       )
     }
@@ -288,7 +288,7 @@ export async function setMultipleShippingMethods({
     // 🟢 Revalidate the cache ONCE after all methods are attached
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
-    
+
     return { success: true }
   } catch (error) {
     return medusaError(error)
@@ -317,9 +317,9 @@ export async function applyPromotions(codes: string[]) {
   const cartId = await getCartId()
 
   if (!cartId) {
-    return { 
-      success: false, 
-      error: "Your cart is empty! Please add an item before applying a promo code." 
+    return {
+      success: false,
+      error: "Your cart is empty! Please add an item before applying a promo code."
     };
   }
 
@@ -395,7 +395,10 @@ export async function submitPromotionForm(
 }
 
 // TODO: Pass a POJO instead of a form entity here
-export async function setAddresses(currentState: unknown, formData: FormData) {
+export async function setAddresses(currentState: unknown,
+  formData: FormData,
+  countryCodeFromUrl: string
+) {
   try {
     if (!formData) {
       throw new Error("No form data found when setting addresses")
@@ -404,6 +407,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
     if (!cartId) {
       throw new Error("No existing cart found when setting addresses")
     }
+    const countryCode = countryCodeFromUrl.toLowerCase()
 
     const data = {
       shipping_address: {
@@ -414,7 +418,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         company: formData.get("shipping_address.company"),
         postal_code: formData.get("shipping_address.postal_code"),
         city: formData.get("shipping_address.city"),
-        country_code: formData.get("shipping_address.country_code"),
+        country_code: countryCode,
         province: formData.get("shipping_address.province"),
         phone: formData.get("shipping_address.phone"),
       },
@@ -433,7 +437,7 @@ export async function setAddresses(currentState: unknown, formData: FormData) {
         company: formData.get("billing_address.company"),
         postal_code: formData.get("billing_address.postal_code"),
         city: formData.get("billing_address.city"),
-        country_code: formData.get("billing_address.country_code"),
+        country_code: countryCode,
         province: formData.get("billing_address.province"),
         phone: formData.get("billing_address.phone"),
       }
@@ -494,13 +498,25 @@ export async function placeOrder(cartId?: string) {
 export async function updateRegion(countryCode: string, currentPath: string) {
   const cartId = await getCartId()
   const region = await getRegion(countryCode)
-
   if (!region) {
     throw new Error(`Region not found for country code: ${countryCode}`)
   }
 
   if (cartId) {
-    await updateCart({ region_id: region.id })
+    // 1. Get current cart to keep existing fields
+    const cart = await retrieveCart(cartId, "*shipping_address,*region")
+
+    const newShippingAddress = cart?.shipping_address
+      ? { ...cart.shipping_address, country_code: countryCode }
+      : undefined
+
+    // 2. Update cart with new region and address
+    await updateCart({
+      region_id: region.id,
+      ...(newShippingAddress && { shipping_address: newShippingAddress }),
+      // DO NOT carry over shipping_methods here; let user re-select
+    })
+
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
   }
