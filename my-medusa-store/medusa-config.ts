@@ -56,5 +56,23 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/bundle",
     },
+    // 🔌 6. The ERPNext Integration Module
+    {
+      resolve: "./src/modules/erp",
+      options: {
+        enabled: process.env.ERPNEXT_ENABLED === "true",
+        url: process.env.ERPNEXT_URL,
+        apiKey: process.env.ERPNEXT_API_KEY,
+        apiSecret: process.env.ERPNEXT_API_SECRET,
+        company: process.env.ERPNEXT_COMPANY,
+        warehouse: process.env.ERPNEXT_DEFAULT_WAREHOUSE,
+        priceList: process.env.ERPNEXT_DEFAULT_PRICE_LIST || "Standard Selling",
+        syncOnOrderPlaced: process.env.ERPNEXT_SYNC_ON_ORDER_PLACED === "true",
+        syncOnProductUpdate: process.env.ERPNEXT_SYNC_ON_PRODUCT_UPDATE === "true",
+        syncOnInventoryChange: process.env.ERPNEXT_SYNC_ON_INVENTORY_CHANGE === "true",
+        retryAttempts: parseInt(process.env.ERPNEXT_SYNC_RETRY_ATTEMPTS || "5", 10),
+        retryBackoffMs: parseInt(process.env.ERPNEXT_SYNC_RETRY_BACKOFF_MS || "1000", 10),
+      },
+    },
   ],
 })
