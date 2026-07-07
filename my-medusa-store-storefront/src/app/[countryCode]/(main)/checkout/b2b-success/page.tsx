@@ -1,66 +1,263 @@
-"use client";
+// my-medusa-store-storefront/src/app/[countryCode]/(main)/checkout/b2b-success/page.tsx
 
-import Link from "next/link";
+import Link from "next/link"
+import { Suspense } from "react"
 
-export default function B2BSuccessPage(props: {
-  params: Promise<{ countryCode: string }>;
-}) {
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface B2BSuccessPageProps {
+  params: Promise<{ countryCode: string }>
+  searchParams: Promise<{
+    quote_id?: string
+    payment_term?: string
+    company_id?: string
+  }>
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default async function B2BSuccessPage({
+  params,
+  searchParams,
+}: B2BSuccessPageProps) {
+  const { countryCode } = await params
+  const { quote_id, payment_term, company_id } = await searchParams
+
+  // Format payment term for display
+  const formattedPaymentTerm = payment_term
+    ? payment_term.replace(/_/g, " ").toUpperCase()
+    : "NET 30"
+
   return (
-    <section className="py-5 bg-light osahan-main-body">
-      <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-lg-7 col-md-9">
-            <div className="bg-white rounded-3 shadow-sm p-5 border text-center">
-              <div className="d-flex justify-content-center mb-4">
+    <>
+      {/* Page Header */}
+      <div className="bg-success py-4">
+        <div className="container text-center text-white">
+          <h2 className="fw-bold mb-0">Quote Submitted</h2>
+        </div>
+      </div>
+
+      <section className="py-5 bg-light osahan-main-body">
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-lg-7 col-md-9">
+
+              {/* ── Success Card ─────────────────────────────────────────── */}
+              <div className="bg-white rounded-3 shadow-sm p-5 border text-center mb-4">
+
+                {/* Success Icon */}
                 <div
-                  className="d-flex align-items-center justify-content-center rounded-circle bg-success bg-opacity-10"
-                  style={{ width: "96px", height: "96px" }}
+                  className="mx-auto mb-4 d-flex align-items-center justify-content-center rounded-circle bg-success bg-opacity-10"
+                  style={{ width: "80px", height: "80px" }}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="56"
-                    height="56"
+                    width="40"
+                    height="40"
                     fill="none"
                     viewBox="0 0 24 24"
-                    strokeWidth="2"
                     stroke="currentColor"
+                    strokeWidth={2}
                     className="text-success"
-                    aria-hidden="true"
+                    style={{ color: "#198754" }}
                   >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
                 </div>
+
+                <h3 className="fw-bold mb-2">
+                  Quote Submitted Successfully!
+                </h3>
+
+                <p className="text-muted mb-4">
+                  Your B2B order has been submitted for approval. Our team will
+                  review your quote and notify you via email once a decision has
+                  been made.
+                </p>
+
+                {/* Quote Reference */}
+                {quote_id && (
+                  <div
+                    className="rounded-3 p-3 mb-4 text-start"
+                    style={{ backgroundColor: "#f8f9fa", border: "1px solid #dee2e6" }}
+                  >
+                    <p className="text-muted small mb-1 fw-semibold">
+                      QUOTE REFERENCE
+                    </p>
+                    <code
+                      className="text-dark"
+                      style={{ fontSize: "0.85rem", wordBreak: "break-all" }}
+                    >
+                      {quote_id}
+                    </code>
+                  </div>
+                )}
+
+                {/* Payment Term Badge */}
+                <div className="mb-4">
+                  <span className="badge bg-primary me-2" style={{ fontSize: "0.85rem", padding: "6px 12px" }}>
+                    B2B Order
+                  </span>
+                  <span className="badge bg-secondary" style={{ fontSize: "0.85rem", padding: "6px 12px" }}>
+                    {formattedPaymentTerm}
+                  </span>
+                </div>
+
+                {/* No payment notice */}
+                <div
+                  className="alert alert-info text-start mb-4"
+                  role="alert"
+                  style={{ fontSize: "0.9rem" }}
+                >
+                  <i className="icofont-info-circle me-2"></i>
+                  <strong>No payment has been charged.</strong> Payment will
+                  only be processed after your quote is approved by our team,
+                  according to your{" "}
+                  <strong>{formattedPaymentTerm}</strong> payment terms.
+                </div>
               </div>
 
-              <h2 className="fw-bold mb-3">Quote Requested Successfully!</h2>
-              <p className="text-muted mb-4">
-                Our team will review your order and send your Net-30 invoice
-                shortly. You will receive a confirmation email with the draft
-                order details.
+              {/* ── What Happens Next ─────────────────────────────────────── */}
+              <div className="bg-white rounded-3 shadow-sm p-4 border mb-4">
+                <h5 className="fw-bold mb-4">
+                  <i className="icofont-list me-2 text-success"></i>
+                  What Happens Next?
+                </h5>
+
+                <div className="d-flex flex-column gap-3">
+                  {/* Step 1 */}
+                  <div className="d-flex align-items-start gap-3">
+                    <div
+                      className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                      style={{ width: "32px", height: "32px", fontSize: "0.85rem" }}
+                    >
+                      1
+                    </div>
+                    <div>
+                      <p className="fw-semibold mb-0">Quote Under Review</p>
+                      <p className="text-muted small mb-0">
+                        Our team reviews your order (usually within 1 business
+                        day).
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Connector */}
+                  <div className="ms-2 ps-3" style={{ borderLeft: "2px dashed #dee2e6", marginLeft: "15px" }}>
+                    &nbsp;
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="d-flex align-items-start gap-3">
+                    <div
+                      className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                      style={{ width: "32px", height: "32px", fontSize: "0.85rem" }}
+                    >
+                      2
+                    </div>
+                    <div>
+                      <p className="fw-semibold mb-0">Email Notification</p>
+                      <p className="text-muted small mb-0">
+                        You receive an email with the approval or rejection
+                        decision.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Connector */}
+                  <div className="ms-2 ps-3" style={{ borderLeft: "2px dashed #dee2e6", marginLeft: "15px" }}>
+                    &nbsp;
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="d-flex align-items-start gap-3">
+                    <div
+                      className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                      style={{ width: "32px", height: "32px", fontSize: "0.85rem" }}
+                    >
+                      3
+                    </div>
+                    <div>
+                      <p className="fw-semibold mb-0">Order Processing</p>
+                      <p className="text-muted small mb-0">
+                        If approved, your order is automatically processed and
+                        fulfillment begins.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Connector */}
+                  <div className="ms-2 ps-3" style={{ borderLeft: "2px dashed #dee2e6", marginLeft: "15px" }}>
+                    &nbsp;
+                  </div>
+
+                  {/* Step 4 */}
+                  <div className="d-flex align-items-start gap-3">
+                    <div
+                      className="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                      style={{ width: "32px", height: "32px", fontSize: "0.85rem" }}
+                    >
+                      4
+                    </div>
+                    <div>
+                      <p className="fw-semibold mb-0">Payment on Terms</p>
+                      <p className="text-muted small mb-0">
+                        Payment is due as per your{" "}
+                        <strong>{formattedPaymentTerm}</strong> agreement.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Action Buttons ────────────────────────────────────────── */}
+              <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                <Link
+                  href={`/${countryCode}/account/orders`}
+                  className="btn btn-success btn-lg px-5"
+                >
+                  <i className="icofont-list me-2"></i>
+                  View My Orders
+                </Link>
+                <Link
+                  href={`/${countryCode}/listing`}
+                  className="btn btn-outline-success btn-lg px-5"
+                >
+                  <i className="icofont-shopping-cart me-2"></i>
+                  Continue Shopping
+                </Link>
+              </div>
+
+              {/* Support Note */}
+              <p className="text-center text-muted small mt-4">
+                Questions about your quote?{" "}
+                <Link
+                  href={`/${countryCode}/contact`}
+                  className="text-success text-decoration-none fw-semibold"
+                >
+                  Contact our B2B team
+                </Link>
               </p>
 
-              <div className="alert alert-success border-success border-opacity-50 text-start small mb-4">
-                <i className="icofont-info-circle me-2"></i>
-                <strong>What happens next?</strong> A wholesale account
-                manager will review your request, confirm product availability,
-                and email your Net-30 invoice for approval before fulfillment.
-              </div>
-
-              <Link
-                href="/"
-                className="btn btn-success fw-bold px-5 py-3 shadow-sm"
-              >
-                <i className="icofont-arrow-left me-2"></i>
-                Return to Store
-              </Link>
             </div>
           </div>
         </div>
-      </div>
-    </section>
-  );
+      </section>
+    </>
+  )
+}
+
+// ─── Metadata ─────────────────────────────────────────────────────────────────
+export async function generateMetadata() {
+  return {
+    title: "Quote Submitted | Organic Canada B2B",
+    description:
+      "Your B2B quote has been submitted successfully and is pending approval.",
+    robots: {
+      index: false,
+      follow: false,
+    },
+  }
 }

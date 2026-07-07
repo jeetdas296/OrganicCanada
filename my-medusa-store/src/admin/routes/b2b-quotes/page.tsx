@@ -12,7 +12,7 @@ export default function B2BQuotesPage() {
       try {
         const res = await fetch("/admin/draft-orders")
         const data = await res.json()
-        
+
         const b2bQuotes = (data.draft_orders || []).filter(
           (order: any) => order.metadata?.is_b2b_quote === true
         )
@@ -30,7 +30,7 @@ export default function B2BQuotesPage() {
   return (
     <Container className="p-8">
       <Heading className="mb-6">B2B Wholesale Quotes 🏢</Heading>
-      
+
       {loading ? (
         <p className="text-ui-fg-muted">Loading quotes...</p>
       ) : quotes.length === 0 ? (
@@ -52,20 +52,20 @@ export default function B2BQuotesPage() {
             {quotes.map((quote) => (
               <Table.Row key={quote.id}>
                 <Table.Cell className="font-medium">#{quote.display_id}</Table.Cell>
-                
+
                 {/* 🟢 FIX 1: Look directly at quote.email instead of quote.cart.email */}
                 <Table.Cell className="text-ui-fg-muted">{quote.email || "Unknown"}</Table.Cell>
-                
+
                 <Table.Cell className="font-medium">
                   {/* 🟢 FIX 2: Look directly at quote.total instead of quote.cart.total */}
-                  ${((quote.total || 0) / 100).toFixed(2)}
+                  ${((quote.total || 0)).toFixed(2)}
                 </Table.Cell>
 
                 <Table.Cell>
                   <Badge color="orange">Pending Review</Badge>
                 </Table.Cell>
                 <Table.Cell className="text-right">
-                  <a href={`/app/orders/${quote.id}`}>
+                  <a href={`/app/draft-orders/${quote.id}`}>
                     <Button variant="secondary" size="small">
                       Review Quote
                     </Button>

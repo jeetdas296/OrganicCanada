@@ -1,5 +1,5 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
-
+import { B2B_MODULE } from "./src/modules/b2b"
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 module.exports = defineConfig({
@@ -55,6 +55,10 @@ module.exports = defineConfig({
     // 📦 5. The Custom Bundle Module (Bundled Products)
     {
       resolve: "./src/modules/bundle",
+    },
+    {
+      resolve: "./src/modules/b2b",
+      key: B2B_MODULE,
     },
     // 🔌 6. The ERPNext Integration Module
     {

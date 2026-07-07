@@ -46,14 +46,15 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       shipping_address: cart.shipping_address,
       billing_address: cart.billing_address,
       items: draftItems,
-      metadata: { 
+      sales_channel_id: cart.sales_channel_id,
+      metadata: {
         is_b2b_quote: true, // This is what your Admin UI looks for!
         original_cart_id: cart.id
       }
     })
 
     console.log(`🧾 🎉 B2B Net-30 Quote Generated: ${draftOrder.id}`)
-    
+
     // 4. Return success so the Next.js Storefront can redirect to the Success Page
     res.status(200).json({ success: true, draft_order_id: draftOrder.id })
 

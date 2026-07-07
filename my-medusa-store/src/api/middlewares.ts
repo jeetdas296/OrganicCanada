@@ -520,6 +520,14 @@ export default defineMiddlewares({
     { matcher: "/admin/returns", middlewares: [vendorReturnFilter] },
     { matcher: "/admin/returns/*", middlewares: [vendorReturnFilter] },
     {
+  matcher: "/admin/vendor-commission",
+  middlewares: [vendorRouteBlocker],
+},
+{
+  matcher: "/admin/vendor-commission/*",
+  middlewares: [vendorRouteBlocker],
+},
+    {
     matcher: "/store/products",
     method: "GET",
     middlewares: [posChannelFilter],

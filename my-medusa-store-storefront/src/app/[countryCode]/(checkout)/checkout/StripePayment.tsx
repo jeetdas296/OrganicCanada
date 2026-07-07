@@ -5,12 +5,20 @@ import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { unlockStripe, clearStaleCartCookie, submitB2BQuote, sniperCompleteOrder } from "./actions";
+
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY as string);
 
 const isB2B = (customer: any) =>
   customer?.metadata?.b2b_status === "approved";
 
-// 🟢 1. We must add `{ cart }` right here so the form knows it exists!
+const isQuoteRequired = (cart: any) => {
+  const cartMetadata = cart?.metadata || {};
+  const is_b2b = cartMetadata.is_b2b === true || cartMetadata.is_b2b === "true";
+  const payment_term = typeof cartMetadata.payment_term === "string" ? cartMetadata.payment_term : "";
+  const approvalRequiredTerms = ["net_15", "net_30", "net_60", "net_90", "upon_approval"];
+  return is_b2b && approvalRequiredTerms.includes(payment_term.toLowerCase());
+};
+
 const CheckoutForm = ({ cart }: { cart: any }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -23,14 +31,10 @@ const CheckoutForm = ({ cart }: { cart: any }) => {
     if (!stripe || !elements) return;
 
     console.log("🚦 1. Button Clicked! Starting checkout...");
-
-    // 👇 WE DELETED THE FAKE ADDRESS CHECK FROM HERE! 👇
-
     setIsProcessing(true);
     setErrorMessage("");
 
     console.log("⏳ 2. Contacting Stripe...");
-
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: "if_required",
@@ -41,55 +45,43 @@ const CheckoutForm = ({ cart }: { cart: any }) => {
     if (error) {
       setErrorMessage(error.message || "Payment declined.");
       setIsProcessing(false);
-    }
-    else if (paymentIntent && (paymentIntent.status === "succeeded" || paymentIntent.status === "requires_capture")) {
+    } else if (paymentIntent && (paymentIntent.status === "succeeded" || paymentIntent.status === "requires_capture")) {
       console.log("✅ 4. Payment Authorized! Executing Server-Side Sniper & Completion...");
 
       try {
         const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
-        const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000";
+        
+        // Smart detect mixed/digital cart items for sniper mode
+        const hasDigitalItems = cart.items?.some((item: any) => 
+          item.variant?.manage_inventory === false || 
+          item.product?.type?.value === "Digital Product"
+        );
 
-        // 🟢 Standard, clean order completion!
-        const completeRes = await fetch(`${backendUrl}/store/carts/${cart.id}/complete`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-publishable-api-key": pubKey
+        // Run the checkout completion securely via our server action
+        const result = await sniperCompleteOrder(cart.id, pubKey, hasDigitalItems);
+
+        if (result.success) {
+          await clearStaleCartCookie().catch(() => null);
+
+          if (result.type === "b2b_quote") {
+            console.log("📋 5. B2B Quote Submitted Successfully!");
+            const countryCode = window.location.pathname.split("/")[1] || "us";
+            window.location.href = `/${countryCode}/checkout/b2b-success`;
+          } else if (result.type === "order") {
+            console.log("🎉 5. Medusa Order Created Successfully:", result.orderId);
+            const successUrl = window.location.pathname.replace("/checkout", "/order/status") + `?redirect_status=succeeded&order_id=${result.orderId}`;
+            window.location.href = successUrl;
           }
-        });
-
-        const responseText = await completeRes.text();
-        let completeData: any = {};
-        try { completeData = JSON.parse(responseText); } catch (e) {}
-
-        let finalOrderId = null;
-
-        if (completeRes.ok && completeData?.type === "order") {
-          finalOrderId = completeData.order.id;
-        } else if (completeRes.ok) {
-          // Catch Stripe Webhook race condition
-          const orderLookup = await fetch(`${backendUrl}/store/orders?cart_id=${cart.id}`, {
-             headers: { "x-publishable-api-key": pubKey }
-          }).then(res => res.json());
-          if (orderLookup.orders && orderLookup.orders.length > 0) finalOrderId = orderLookup.orders[0].id;
-        }
-
-        if (finalOrderId) {
-          console.log("🎉 5. Medusa Order Created Successfully:", finalOrderId);
-          await clearStaleCartCookie();
-          const successUrl = window.location.pathname.replace("/checkout", "/order/status") + `?redirect_status=succeeded&order_id=${finalOrderId}`;
-          window.location.href = successUrl;
         } else {
-          console.error("🚨 Order Creation Failed:", responseText);
-          setErrorMessage("Payment succeeded, but we are finalizing your order. Please check your email for the receipt.");
+          console.error("🚨 Server Side Order Completion Failed:", result.error);
+          setErrorMessage(result.error || "Failed to finalize order on server.");
           setIsProcessing(false);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Critical Backend Error:", err);
-        setErrorMessage("Connection lost while finalizing your order. Do not refresh.");
+        setErrorMessage(err.message || "Connection lost while finalizing your order. Do not refresh.");
         setIsProcessing(false);
       }
-
     } else {
       console.log("⚠️ 5. Unhandled Stripe Status:", paymentIntent?.status);
       setIsProcessing(false);
@@ -113,7 +105,6 @@ const CheckoutForm = ({ cart }: { cart: any }) => {
   );
 };
 
-// 🟢 B2B Wholesale block: replaces Stripe form entirely for approved buyers.
 const B2BQuoteBlock = ({ cart }: { cart: any }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -123,17 +114,14 @@ const B2BQuoteBlock = ({ cart }: { cart: any }) => {
     setErrorMessage("");
 
     try {
-      // 🟢 We now use the Server Action to completely bypass browser CORS blocks!
       const response = await submitB2BQuote(cart.id);
 
       if (!response.success) {
-        throw new Error(response.error || "Failed to submit your Net-30 quote request.");
+        throw new Error(response.error || "Failed to submit your quote request.");
       }
 
-      // Clear the cart cookie just like a normal order does.
       await clearStaleCartCookie().catch(() => null);
 
-      // Redirect to the dedicated B2B success page.
       const countryCode = window.location.pathname.split("/")[1] || "us";
       window.location.href = `/${countryCode}/checkout/b2b-success`;
       
@@ -152,7 +140,7 @@ const B2BQuoteBlock = ({ cart }: { cart: any }) => {
         <i className="icofont-building-alt fs-1 d-block mb-2 text-success"></i>
         <h5 className="fw-bold mb-2">Wholesale Account Active</h5>
         <p className="mb-0 text-muted small">
-          Your order will be submitted as a <strong>Net-30 Draft Order</strong>{" "}
+          Your order will be submitted as a <strong>Draft Order Quote</strong>{" "}
           for review. No payment is required at this time.
         </p>
       </div>
@@ -181,19 +169,18 @@ const B2BQuoteBlock = ({ cart }: { cart: any }) => {
             SUBMITTING QUOTE REQUEST...
           </>
         ) : (
-          "REQUEST NET-30 QUOTE"
+          "REQUEST B2B QUOTE"
         )}
       </button>
 
       <p className="text-center text-muted small mt-3 mb-0">
         <i className="icofont-lock"></i> Our team will review your order and
-        send your Net-30 invoice shortly.
+        send your invoice details shortly.
       </p>
     </div>
   );
 };
 
-// 🟢 2. We must add `{ cart }` here too, so the parent component can accept it from CheckoutPage!
 export default function StripePayment({
   clientSecret,
   cart,
@@ -204,10 +191,9 @@ export default function StripePayment({
   customer: any;
 }) {
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const router = useRouter();
 
-  // 🟢 B2B branch: short-circuit Stripe entirely for approved wholesale buyers.
-  if (isB2B(customer)) {
+  // B2B branch: short-circuit Stripe entirely if customer or cart explicitly requires a quote
+  if (isB2B(customer) || isQuoteRequired(cart)) {
     return <B2BQuoteBlock cart={cart} />;
   }
 
@@ -226,7 +212,7 @@ export default function StripePayment({
               alert("Medusa Error: " + response.error);
               setIsUnlocking(false);
             } else {
-              router.refresh();
+              window.location.reload();
             }
           }}
           className="btn btn-warning fw-bold px-4 shadow-sm"
@@ -240,7 +226,6 @@ export default function StripePayment({
 
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>
-      {/* 🟢 3. Finally, we pass the cart down into the CheckoutForm! */}
       <CheckoutForm cart={cart} />
     </Elements>
   );

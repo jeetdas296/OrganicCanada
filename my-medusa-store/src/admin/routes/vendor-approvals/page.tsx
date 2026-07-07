@@ -1,19 +1,32 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { BuildingStorefront } from "@medusajs/icons"
-import { Container, Heading, Table, Button, Badge, toast } from "@medusajs/ui"
+import { Container, Heading, Table, Button, Badge, toast, Input } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 
-export default function VendorApprovalsPage() {
-  const [vendors, setVendors] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+type PendingVendor = {
+  id: string
+  name: string
+  email: string
+  created_at: string
+}
 
-  // 1. Fetch the pending vendors when the page loads
+export default function VendorApprovalsPage() {
+  const [vendors, setVendors] = useState<PendingVendor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [rates, setRates] = useState<Record<string, string>>({})
+
   const fetchPendingVendors = async () => {
+    setLoading(true)
     try {
       const res = await fetch("/admin/pending-vendors")
       const data = await res.json()
-      setVendors(data.vendors || [])
-    } catch (err) {
+      const list: PendingVendor[] = data.vendors || []
+      setVendors(list)
+
+      const initialRates: Record<string, string> = {}
+      list.forEach((v) => (initialRates[v.id] = "15"))
+      setRates(initialRates)
+    } catch {
       toast.error("Failed to load vendor applications.")
     } finally {
       setLoading(false)
@@ -24,27 +37,38 @@ export default function VendorApprovalsPage() {
     fetchPendingVendors()
   }, [])
 
-  // 2. Handle the approval click
   const handleApprove = async (vendorId: string, vendorName: string) => {
+    const parsedRate = Number(rates[vendorId])
+
+    if (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100) {
+      toast.error("Commission rate must be between 0 and 100")
+      return
+    }
+
     try {
       const res = await fetch(`/admin/pending-vendors/${vendorId}/approve`, {
-        method: "POST"
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commission_rate: parsedRate }),
       })
 
-      if (res.ok) {
-        toast.success(`${vendorName} has been approved!`)
-        // Remove them from the pending list
-        setVendors((prev) => prev.filter((v) => v.id !== vendorId))
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.message || "Failed to approve vendor.")
+        return
       }
-    } catch (err) {
+
+      toast.success(`${vendorName} approved with ${parsedRate}% commission`)
+      setVendors((prev) => prev.filter((v) => v.id !== vendorId))
+    } catch {
       toast.error("Failed to approve vendor.")
     }
   }
 
   return (
     <Container className="p-8">
-      <Heading className="mb-6">Vendor Applications 🌾</Heading>
-      
+      <Heading className="mb-6">Vendor Applications</Heading>
+
       {loading ? (
         <p className="text-ui-fg-muted">Loading applications...</p>
       ) : vendors.length === 0 ? (
@@ -59,6 +83,7 @@ export default function VendorApprovalsPage() {
               <Table.HeaderCell>Email</Table.HeaderCell>
               <Table.HeaderCell>Applied On</Table.HeaderCell>
               <Table.HeaderCell>Status</Table.HeaderCell>
+              <Table.HeaderCell>Commission (%)</Table.HeaderCell>
               <Table.HeaderCell className="text-right">Action</Table.HeaderCell>
             </Table.Row>
           </Table.Header>
@@ -73,9 +98,21 @@ export default function VendorApprovalsPage() {
                 <Table.Cell>
                   <Badge color="orange">Pending Review</Badge>
                 </Table.Cell>
+                <Table.Cell className="w-40">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={rates[vendor.id] ?? "15"}
+                    onChange={(e) =>
+                      setRates((prev) => ({ ...prev, [vendor.id]: e.target.value }))
+                    }
+                  />
+                </Table.Cell>
                 <Table.Cell className="text-right">
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     size="small"
                     onClick={() => handleApprove(vendor.id, vendor.name)}
                   >
@@ -91,7 +128,6 @@ export default function VendorApprovalsPage() {
   )
 }
 
-// 🟢 This block magically adds the page to the Medusa Sidebar!
 export const config = defineRouteConfig({
   label: "Vendor Approvals",
   icon: BuildingStorefront,
