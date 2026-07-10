@@ -4,16 +4,16 @@ import { Modules } from "@medusajs/framework/utils"
 // Step A: Create the Farm profile in your custom database
 export const createVendorProfileStep = createStep(
   "create-vendor-profile-step",
-  async (input: { farm_name: string; email: string }, { container }) => { 
+  async (input: { farm_name: string; email: string }, { container }) => {
     const vendorService = container.resolve("vendor")
-    
+
     // 🟢 Generate a clean, lowercase URL slug from the farm name
     const generatedHandle = input.farm_name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-') // Replace spaces and special chars with hyphens
       .replace(/(^-|-$)+/g, '')    // Remove trailing or leading hyphens
 
-    const vendor = await vendorService.createVendors({ 
+    const vendor = await vendorService.createVendors({
       name: input.farm_name,
       email: input.email,
       handle: generatedHandle, // 🟢 Pass the generated handle to the database!
@@ -29,12 +29,12 @@ export const createVendorUserStep = createStep(
   "create-vendor-user-step",
   async (input: { email: string }, { container }) => {
     const userService = container.resolve("user")
-    
+
     // We explicitly create the Admin User profile to match the Auth Password!
-    const user = await userService.createUsers({ 
-      email: input.email 
+    const user = await userService.createUsers({
+      email: input.email
     })
-    
+
     return new StepResponse(user)
   }
 )
@@ -44,7 +44,7 @@ export const linkVendorToUserStep = createStep(
   "link-vendor-to-user-step",
   async (input: { userId: string, vendorId: string }, { container }) => {
     const remoteLink = container.resolve("remoteLink")
-    
+
     // 🟢 Wrap the payload in an array [] and use Modules.USER
     await remoteLink.create([
       {
@@ -52,7 +52,7 @@ export const linkVendorToUserStep = createStep(
         "vendor": { vendor_id: input.vendorId }
       }
     ])
-    
+
     return new StepResponse({ success: true })
   }
 )
@@ -75,11 +75,11 @@ export const linkUserToAuthStep = createStep(
 
     // 2. Bridge them together by stamping the User ID into the Auth Identity's metadata
     await authService.updateAuthIdentities([{
-      id: authIdentityId,
-      app_metadata: { 
-        user_id: input.userId 
+      id: authIdentityId as string,
+      app_metadata: {
+        user_id: input.userId
       }
-    }])
+    }] as any)
 
     return new StepResponse({ success: true })
   }

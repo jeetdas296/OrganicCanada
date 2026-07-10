@@ -128,10 +128,10 @@ export default async function erpOrderPlacedHandler({
         id: order.id,
         customer_id: order.customer_id,
         email: order.email,
-        payment_status: order.payment_status,
+        payment_status: (order as any).payment_status,
         items,
-      },
-      customerDetails
+      } as any,
+      customerDetails as any
     )
 
     logger.info(

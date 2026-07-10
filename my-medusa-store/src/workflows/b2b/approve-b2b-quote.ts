@@ -133,14 +133,14 @@ export const approveB2BQuoteWorkflow = createWorkflow(
     // Step 2: Convert quote (this triggers cart completion)
     const conversion = convertQuoteToOrderStep({
       quote_id: input.quote_id,
-      cart_id: quote.cart_id,
+      cart_id: quote.cart_id as any,
     })
 
     // Step 3: Complete the cart → This creates the real Medusa Order
     // completeCartWorkflow is the official Medusa workflow
     const { order } = completeCartWorkflow.runAsStep({
-      input: { id: quote.cart_id },
-    })
+      input: { id: quote.cart_id as any },
+    }) as any
 
     // Step 4: Link the created order back to the quote
     linkQuoteToOrderStep({

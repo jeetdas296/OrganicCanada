@@ -30,28 +30,28 @@ export default async function orderPlacedHandler({
   }
 
   // 3. Loop through the cart items to see if they bought a subscription
-  for (const item of order.items) {
-      if (!item) continue; // 🟢 FIX 1: Tell TS to skip null items
+  for (const item of order.items || []) {
+    if (!item) continue; // 🟢 FIX 1: Tell TS to skip null items
 
-      const productMetadata = item.variant?.product?.metadata || {}
-      
-      if (productMetadata.is_subscription === "true") {
-        console.log(`📦 Subscription Item Found: ${item.title}`)
-        
-        // Create the subscription in the DB
-        await subscriptionModuleService.createSubscriptions({
-          customer_id: order.customer_id,
-          original_order_id: order.id,
-          variant_id: item.variant_id,
-          stripe_payment_method_id: "pm_mock_123", 
-          interval: productMetadata.subscription_interval || "weekly",
-          next_billing_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 
-          status: "active"
-        } as any) // 🟢 FIX 2: Add 'as any' here to bypass strict DML type checking
-        
-        console.log(`🎉 SUCCESS: Subscription saved to database for customer ${order.customer_id}!`)
-      }
+    const productMetadata = item.variant?.product?.metadata || {}
+
+    if (productMetadata.is_subscription === "true") {
+      console.log(`📦 Subscription Item Found: ${item.title}`)
+
+      // Create the subscription in the DB
+      await subscriptionModuleService.createSubscriptions({
+        customer_id: order.customer_id,
+        original_order_id: order.id,
+        variant_id: item.variant_id,
+        stripe_payment_method_id: "pm_mock_123",
+        interval: productMetadata.subscription_interval || "weekly",
+        next_billing_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        status: "active"
+      } as any) // 🟢 FIX 2: Add 'as any' here to bypass strict DML type checking
+
+      console.log(`🎉 SUCCESS: Subscription saved to database for customer ${order.customer_id}!`)
     }
+  }
 }
 
 // This tells Medusa to run this script ONLY when an order is officially placed

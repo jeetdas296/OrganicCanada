@@ -27,7 +27,7 @@ export default async function syncPendingOrdersJob(
 
   for (const order of staleOrders) {
     try {
-      await orderService.cancelOrder(order.id)
+      await (orderService as any).cancelOrder(order.id)
       console.log("[OMS-JOB] Auto-cancelled stale draft: " + order.id)
     } catch (err: any) {
       console.warn("[OMS-JOB] Could not cancel " + order.id + ": " + err.message)

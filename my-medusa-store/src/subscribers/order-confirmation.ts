@@ -40,7 +40,7 @@ export default async function orderConfirmationHandler({
       )
       .join("") || ""
 
-    const totalAmount = order.total ? (order.total / 100).toFixed(2) : "0.00"
+    const totalAmount = order.total ? (Number(order.total) / 100).toFixed(2) : "0.00"
     const currency = order.currency_code ? order.currency_code.toUpperCase() : ""
 
     // 3. Send the email using Resend

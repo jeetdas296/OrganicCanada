@@ -15,7 +15,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   }
 
   // Fetch cart details
-  let cart = null
+  let cart: any = null
   if (quote.cart_id) {
     const { data: carts } = await query.graph({
       entity: "cart",
@@ -39,7 +39,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   }
 
   // Fetch order if exists
-  let order = null
+  let order: any = null
   if (quote.order_id) {
     const { data: orders } = await query.graph({
       entity: "order",

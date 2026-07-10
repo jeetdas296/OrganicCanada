@@ -62,7 +62,14 @@ class ErpModuleService extends MedusaService({
 
       if (existingMapping) {
         if (existingMapping.erp_name !== erpName) {
-          await this.updateErpMappings(existingMapping.id, { erp_name: erpName })
+          await this.updateErpMappings({
+            selector: {
+              id: existingMapping.id,
+            },
+            data: {
+              erp_name: erpName,
+            },
+          })
         }
       } else {
         await this.createErpMappings({
@@ -161,8 +168,8 @@ class ErpModuleService extends MedusaService({
     order: {
       id: string
       customer_id?: string | null
-      email: string
-      payment_status: string
+      email?: string | null
+      payment_status?: string
       items: Array<{
         variant_id: string
         quantity: number

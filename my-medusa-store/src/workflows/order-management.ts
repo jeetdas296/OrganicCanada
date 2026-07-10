@@ -66,13 +66,13 @@ export const routeFulfillmentStep = createStep(
 
     const fulfillment = await fulfillmentService.createFulfillment({
       location_id: input.locationId || await resolveLocationBySalesChannel(input.orderId, container),
-      items: input.items,
+      items: input.items as any,
       order_id: input.orderId,
       provider_id: "manual", // swap with your provider ID e.g. "shipstation"
       delivery_address: {},
       labels: [],
       order: { id: input.orderId } as any,
-    })
+    } as any)
 
     console.log("OMS: Fulfillment created: " + fulfillment.id)
     return new StepResponse({ fulfillment }, fulfillment.id)
@@ -101,7 +101,7 @@ export const createReturnStep = createStep(
       order_id: input.orderId,
       items: input.items,
       location_id: input.locationId,
-    })
+    } as any)
 
     console.log("OMS: Return created: " + orderReturn.id)
     return new StepResponse({ orderReturn }, orderReturn.id)

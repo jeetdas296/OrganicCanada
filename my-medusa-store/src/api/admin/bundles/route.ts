@@ -74,7 +74,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         await bundleModule.deleteBundleItems(oldItemIds)
       }
 
-      await bundleModule.updateBundles(existingBundle.id, {
+      await (bundleModule as any).updateBundles({
+        id: existingBundle.id,
         title,
         description: description || null,
         metadata: existingBundle.metadata || {}, 

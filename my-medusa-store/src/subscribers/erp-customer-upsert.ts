@@ -22,7 +22,7 @@ export default async function erpCustomerUpsertHandler({
       return
     }
 
-    const erpName = await erpModuleService.syncCustomer(customer)
+    const erpName = await erpModuleService.syncCustomer(customer as any)
     logger.info(`[ERPNext Subscriber] Customer ${data.id} successfully synced to ERPNext as ${erpName}.`)
   } catch (error: any) {
     logger.error(`[ERPNext Subscriber] Failed to sync customer ${data.id}: ${error.message}`)

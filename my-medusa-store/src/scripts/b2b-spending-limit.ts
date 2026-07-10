@@ -1,7 +1,7 @@
 import { ExecArgs } from "@medusajs/framework/types"
 
 export default async function setSpendingLimit({ container }: ExecArgs) {
-  const customerService = container.resolve("customerModuleService")
+  const customerService = container.resolve("customerModuleService") as any
   
   const customerId = process.argv[3] 
   const limit = parseInt(process.argv[4] || "0")

@@ -47,11 +47,16 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
 
     // Fetch customer details if logged in
-    let customerDetails = {
-      email: order.email,
+    let customerDetails: {
+      email: string
+      first_name: string
+      last_name: string
+      phone?: string
+    } = {
+      email: String(order.email ?? ""),
       first_name: "Guest",
       last_name: "Customer",
-      phone: undefined as string | undefined,
+      phone: undefined,
     }
 
     if (order.customer_id) {
@@ -62,15 +67,35 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       })
       if (customer) {
         customerDetails = {
-          email: customer.email,
+          email: String(customer.email ?? order.email ?? ""),
           first_name: customer.first_name || "Guest",
           last_name: customer.last_name || "Customer",
           phone: customer.phone || undefined,
         }
       }
     }
-
-    const erpName = await erpModuleService.syncOrder(order, customerDetails)
+    const erpName = await erpModuleService.syncOrder(
+      order as {
+        id: string
+        customer_id?: string | null
+        email: string
+        payment_status?: string
+        items: Array<{
+          variant_id: string
+          quantity: number
+          unit_price: number
+          variant?: {
+            sku?: string
+            title: string
+            product?: {
+              title: string
+              description?: string
+            }
+          }
+        }>
+      },
+      customerDetails
+    )
     return res.status(200).json({ success: true, erp_name: erpName })
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message })

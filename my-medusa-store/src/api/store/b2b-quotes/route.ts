@@ -51,12 +51,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         is_b2b_quote: true, // This is what your Admin UI looks for!
         original_cart_id: cart.id
       }
-    })
+    } as any)
 
-    console.log(`🧾 🎉 B2B Net-30 Quote Generated: ${draftOrder.id}`)
+    const draftOrderId = Array.isArray(draftOrder) ? draftOrder[0]?.id : (draftOrder as any).id
+    console.log(`🧾 🎉 B2B Net-30 Quote Generated: ${draftOrderId}`)
 
     // 4. Return success so the Next.js Storefront can redirect to the Success Page
-    res.status(200).json({ success: true, draft_order_id: draftOrder.id })
+    res.status(200).json({ success: true, draft_order_id: draftOrderId })
 
   } catch (error: any) {
     console.error("❌ Failed to generate B2B Quote:", error.message)

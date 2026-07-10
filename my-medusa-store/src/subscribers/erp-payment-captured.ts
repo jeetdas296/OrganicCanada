@@ -72,7 +72,7 @@ export default async function erpPaymentCapturedHandler({
       }
     }
 
-    const erpName = await erpModuleService.syncOrder(order, customerDetails)
+    const erpName = await erpModuleService.syncOrder(order as any, customerDetails as any)
     logger.info(`[ERPNext Subscriber] Order ${orderId} successfully updated/synced to ERPNext as ${erpName} after payment capture.`)
   } catch (error: any) {
     logger.error(`[ERPNext Subscriber] Failed to sync order on payment capture: ${error.message}`)

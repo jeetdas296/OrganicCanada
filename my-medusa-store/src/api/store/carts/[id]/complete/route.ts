@@ -62,7 +62,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 
     return res.status(200).json({
       type: "order",
-      order: result.order,
+      order: (result as any).order,
     })
   } catch (e: any) {
     return res.status(500).json({

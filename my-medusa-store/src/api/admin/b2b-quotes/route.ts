@@ -36,8 +36,8 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   // Enrich quotes with cart and order details
   const enrichedQuotes = await Promise.all(
     quotes.map(async (quote) => {
-      let cartDetails = null
-      let orderDetails = null
+      let cartDetails: any = null
+      let orderDetails: any = null
 
       if (quote.cart_id) {
         try {

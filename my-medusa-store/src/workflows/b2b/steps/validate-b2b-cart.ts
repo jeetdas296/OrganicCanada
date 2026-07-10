@@ -70,7 +70,7 @@ export const validateB2BCartStep = createStep(
       customer_id: cart.customer_id || null,
       company_id,
       requires_quote,
-      cart_total: cart.total,
+      cart_total: (cart as any).total,
       currency_code: cart.currency_code,
     })
   }

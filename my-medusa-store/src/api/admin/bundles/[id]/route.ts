@@ -44,9 +44,9 @@ export async function DELETE(req: MedusaRequest, res: MedusaResponse) {
     }
 
     // 3. Dismiss the remote link (Product ↔ Bundle)
-    await remoteLink.dismiss([{
+    await remoteLink.dismiss({
       [BUNDLE_MODULE]: { bundle_id: bundleId },
-    }])
+    })
 
     // 4. Delete the bundle itself
     await bundleModule.deleteBundles(bundleId)

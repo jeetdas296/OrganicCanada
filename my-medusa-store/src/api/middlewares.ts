@@ -7,7 +7,7 @@ import { Modules } from "@medusajs/framework/utils"
 // --------------------------------------------------------
 async function getVendorIdForUser(req: MedusaRequest, userId: string): Promise<string | null> {
   const query = req.scope.resolve("query")
-  
+
   const { data: users } = await query.graph({
     entity: "user",
     fields: ["id", "vendor.*"],
@@ -22,7 +22,7 @@ async function getVendorIdForUser(req: MedusaRequest, userId: string): Promise<s
       filters: { user_id: userId }
     })
     if (vendors.length > 0 && vendors[0].id) return vendors[0].id
-  } catch (e) {}
+  } catch (e) { }
 
   return null
 }
@@ -34,19 +34,19 @@ async function getVendorIdForUser(req: MedusaRequest, userId: string): Promise<s
 // 1. THE BLOCKER (Upgraded to a Soft-Block / Data Masking)
 // --------------------------------------------------------
 const vendorRouteBlocker = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
-  if (req.method !== "GET") return next() 
+  if (req.method !== "GET") return next()
 
   const userId = (req as any).auth_context?.actor_id
   if (!userId) return next()
 
-  const vendorId = await getVendorIdForUser(req, userId) 
+  const vendorId = await getVendorIdForUser(req, userId)
 
   if (vendorId) {
     // 🟢 SOFT BLOCK: We force the database to search for an impossible ID.
     // Medusa will return an empty array [] without crashing the React UI!
     req.query = req.query || {};
     req.query.id = ["blocked-for-vendors"];
-    
+
     if (!(req as any).filterableFields) {
       (req as any).filterableFields = {};
     }
@@ -59,7 +59,7 @@ const vendorRouteBlocker = async (req: MedusaRequest, res: MedusaResponse, next:
 // 2. THE PRODUCT CREATOR
 // --------------------------------------------------------
 const vendorProductCreate = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
-  if (req.method !== "POST") return next() 
+  if (req.method !== "POST") return next()
 
   const userId = (req as any).auth_context?.actor_id
   if (!userId) return next()
@@ -70,7 +70,7 @@ const vendorProductCreate = async (req: MedusaRequest, res: MedusaResponse, next
     const originalJson = res.json.bind(res)
     res.json = (body: any) => {
       const productId = body?.product?.id || body?.products?.[0]?.id
-      
+
       if (productId) {
         const remoteLink = req.scope.resolve("remoteLink")
         remoteLink.create([{
@@ -88,12 +88,12 @@ const vendorProductCreate = async (req: MedusaRequest, res: MedusaResponse, next
 // 3. THE PRODUCT FILTER
 // --------------------------------------------------------
 const vendorProductFilter = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
-  if (req.method !== "GET") return next() 
+  if (req.method !== "GET") return next()
 
   const userId = (req as any).auth_context?.actor_id
   if (!userId) return next()
 
-  const vendorId = await getVendorIdForUser(req, userId) 
+  const vendorId = await getVendorIdForUser(req, userId)
 
   if (vendorId) {
     const rawPath = req.originalUrl?.split("?")[0] || ""
@@ -105,14 +105,14 @@ const vendorProductFilter = async (req: MedusaRequest, res: MedusaResponse, next
         entity: "product",
         fields: ["id", "vendor.*"]
       })
-      
+
       const vendorProductIds = products.filter((p: any) => p.vendor?.id === vendorId).map((p: any) => p.id)
       const targetIds = vendorProductIds.length > 0 ? vendorProductIds : ["no-products-yet"]
 
       // 🟢 FIXED JS SYNTAX
       req.query = req.query || {};
       req.query.id = targetIds;
-      
+
       if (!(req as any).filterableFields) {
         (req as any).filterableFields = {};
       }
@@ -126,12 +126,12 @@ const vendorProductFilter = async (req: MedusaRequest, res: MedusaResponse, next
 // 4. THE ORDER FILTER
 // --------------------------------------------------------
 const vendorOrderFilter = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
-  if (req.method !== "GET") return next() 
+  if (req.method !== "GET") return next()
 
   const userId = (req as any).auth_context?.actor_id
   if (!userId) return next()
 
-  const vendorId = await getVendorIdForUser(req, userId) 
+  const vendorId = await getVendorIdForUser(req, userId)
 
   if (vendorId) {
     const rawPath = req.originalUrl?.split("?")[0] || ""
@@ -147,7 +147,7 @@ const vendorOrderFilter = async (req: MedusaRequest, res: MedusaResponse, next: 
 
       const { data: orders } = await query.graph({
         entity: "order",
-        fields: ["id", "items.*", "items.product_id"] 
+        fields: ["id", "items.*", "items.product_id"]
       })
 
       const vendorOrderIds = orders.filter((order: any) => {
@@ -159,7 +159,7 @@ const vendorOrderFilter = async (req: MedusaRequest, res: MedusaResponse, next: 
       // 🟢 FIXED JS SYNTAX
       req.query = req.query || {};
       req.query.id = targetIds;
-      
+
       if (!(req as any).filterableFields) {
         (req as any).filterableFields = {};
       }
@@ -173,7 +173,7 @@ const b2bProductFilter = async (req: MedusaRequest, res: MedusaResponse, next: M
   try {
     // 1. Is the customer logged into the storefront?
     const customerId = (req as any).auth_context?.actor_id
-    
+
     if (!customerId) {
       return next() // Not logged in? Show standard retail products.
     }
@@ -188,9 +188,9 @@ const b2bProductFilter = async (req: MedusaRequest, res: MedusaResponse, next: M
     })
 
     const customer = customers[0]
-    
+
     // Check if they are in the wholesale group you manually created
-    const isB2B = customer?.groups?.some((g: any) => 
+    const isB2B = customer?.groups?.some((g: any) =>
       g.name.toLowerCase().includes("b2b") || g.name.toLowerCase().includes("wholesale")
     )
 
@@ -215,7 +215,7 @@ const b2bProductFilter = async (req: MedusaRequest, res: MedusaResponse, next: M
           (req as any).filterableFields = {}
         }
         (req as any).filterableFields.sales_channel_id = [b2bChannelId]
-        
+
         console.log(`✅ [B2B BOUNCER] Successfully locked catalog to B2B Channel: ${b2bChannelId}`)
       }
     }
@@ -246,10 +246,10 @@ const b2bCartInterceptor = async (req: MedusaRequest, res: MedusaResponse, next:
     const spendingLimit = cart.customer.metadata?.spending_limit
 
     if (spendingLimit !== undefined && spendingLimit !== null) {
-      if (cart.total > spendingLimit) {
+      if ((cart as any).total > spendingLimit) {
         return res.status(400).json({
           type: "invalid_data",
-          message: `B2B Spending Limit Exceeded. Your limit is ${spendingLimit}, but the cart total is ${cart.total}.`
+          message: `B2B Spending Limit Exceeded. Your limit is ${spendingLimit}, but the cart total is ${(cart as any).total}.`
         })
       }
     }
@@ -271,7 +271,7 @@ const vendorApprovalBouncer = async (req: MedusaRequest, res: MedusaResponse, ne
   if (!userId) return next()
 
   const query = req.scope.resolve("query")
-  
+
   const { data: users } = await query.graph({
     entity: "user",
     fields: ["id", "vendor.*"],
@@ -283,11 +283,11 @@ const vendorApprovalBouncer = async (req: MedusaRequest, res: MedusaResponse, ne
   if (vendor) {
     // 🟢 We now check your specific database column: is_active
     // If it is strictly false, we kick them out.
-    if (vendor.is_active === false) { 
+    if (vendor.is_active === false) {
       console.log(`🛑 [BOUNCER] Kicked out pending vendor: ${vendor.id}`)
-      
-      return res.status(401).json({ 
-        message: "Your vendor account is still pending approval by the Super Admin." 
+
+      return res.status(401).json({
+        message: "Your vendor account is still pending approval by the Super Admin."
       })
     }
   }
@@ -298,12 +298,12 @@ const vendorApprovalBouncer = async (req: MedusaRequest, res: MedusaResponse, ne
 // THE INVENTORY FILTER
 // --------------------------------------------------------
 const vendorInventoryFilter = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
-  if (req.method !== "GET") return next() 
+  if (req.method !== "GET") return next()
 
   const userId = (req as any).auth_context?.actor_id
   if (!userId) return next()
 
-  const vendorId = await getVendorIdForUser(req, userId) 
+  const vendorId = await getVendorIdForUser(req, userId)
 
   if (vendorId) {
     const rawPath = req.originalUrl?.split("?")[0] || ""
@@ -311,16 +311,16 @@ const vendorInventoryFilter = async (req: MedusaRequest, res: MedusaResponse, ne
 
     if (isListRoute) {
       const query = req.scope.resolve("query")
-      
+
       // 1. Fetch all products with their variants and linked inventory items
       const { data: products } = await query.graph({
         entity: "product",
         fields: ["id", "vendor.*", "variants.*", "variants.inventory_items.*"]
       })
-      
+
       // 2. Filter for this vendor's products
       const vendorProducts = products.filter((p: any) => p.vendor?.id === vendorId)
-      
+
       // 3. Extract the exact Inventory Item IDs linked to this vendor's products
       let inventoryIds: string[] = []
       vendorProducts.forEach((p: any) => {
@@ -337,7 +337,7 @@ const vendorInventoryFilter = async (req: MedusaRequest, res: MedusaResponse, ne
       // 4. Force the database to only return these specific inventory items
       req.query = req.query || {};
       req.query.id = targetIds;
-      
+
       if (!(req as any).filterableFields) {
         (req as any).filterableFields = {};
       }
@@ -351,12 +351,12 @@ const vendorInventoryFilter = async (req: MedusaRequest, res: MedusaResponse, ne
 // THE DRAFT ORDER FILTER
 // --------------------------------------------------------
 const vendorDraftOrderFilter = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
-  if (req.method !== "GET") return next() 
+  if (req.method !== "GET") return next()
 
   const userId = (req as any).auth_context?.actor_id
   if (!userId) return next()
 
-  const vendorId = await getVendorIdForUser(req, userId) 
+  const vendorId = await getVendorIdForUser(req, userId)
 
   if (vendorId) {
     const rawPath = req.originalUrl?.split("?")[0] || ""
@@ -364,7 +364,7 @@ const vendorDraftOrderFilter = async (req: MedusaRequest, res: MedusaResponse, n
 
     if (isListRoute) {
       const query = req.scope.resolve("query")
-      
+
       // 1. Find all products owned by this vendor
       const { data: products } = await query.graph({
         entity: "product",
@@ -375,7 +375,7 @@ const vendorDraftOrderFilter = async (req: MedusaRequest, res: MedusaResponse, n
       // 2. Query orders (Draft Orders are stored as regular orders with an is_draft_order flag)
       const { data: orders } = await query.graph({
         entity: "order",
-        fields: ["id", "items.*", "items.product_id"] 
+        fields: ["id", "items.*", "items.product_id"]
       })
 
       // 3. Filter orders that contain the vendor's products
@@ -388,7 +388,7 @@ const vendorDraftOrderFilter = async (req: MedusaRequest, res: MedusaResponse, n
       // 4. Force the database to only return these specific draft orders
       req.query = req.query || {};
       req.query.id = targetIds;
-      
+
       if (!(req as any).filterableFields) {
         (req as any).filterableFields = {};
       }
@@ -442,7 +442,7 @@ const vendorReturnFilter = async (
       req.query = req.query || {}
       req.query.order_id = targetIds
       if (!(req as any).filterableFields) (req as any).filterableFields = {}
-      ;(req as any).filterableFields.order_id = targetIds
+        ; (req as any).filterableFields.order_id = targetIds
     }
   }
   next()
@@ -470,7 +470,7 @@ const posChannelFilter = async (
     if (posChannelId) {
       req.query.sales_channel_id = [posChannelId]
       if (!(req as any).filterableFields) (req as any).filterableFields = {}
-      ;(req as any).filterableFields.sales_channel_id = [posChannelId]
+        ; (req as any).filterableFields.sales_channel_id = [posChannelId]
     }
   }
   next()
@@ -493,20 +493,20 @@ export default defineMiddlewares({
       method: "POST",
       middlewares: [b2bCartInterceptor],
     },
-    
+
     // 🔴 THE NEW ROUTE BLOCKERS (Secures the backend APIs)
     { matcher: "/admin/customers", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/customers/*", middlewares: [vendorRouteBlocker] },
-    
+
     { matcher: "/admin/price-lists", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/price-lists/*", middlewares: [vendorRouteBlocker] },
-    
+
     { matcher: "/admin/b2b-quotes", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/vendor-approvals", middlewares: [vendorRouteBlocker] },
-    
+
     { matcher: "/admin/settings", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/settings/*", middlewares: [vendorRouteBlocker] },
-    
+
     // Vendor allowances
     { matcher: "/admin/products", middlewares: [vendorProductFilter, vendorProductCreate] },
     { matcher: "/admin/products/*", middlewares: [vendorProductFilter] },
@@ -514,23 +514,23 @@ export default defineMiddlewares({
     { matcher: "/admin/orders/*", middlewares: [vendorOrderFilter] },
     { matcher: "/admin/inventory-items", middlewares: [vendorInventoryFilter] },
     { matcher: "/admin/inventory-items/*", middlewares: [vendorInventoryFilter] },
-    
+
     { matcher: "/admin/draft-orders", middlewares: [vendorDraftOrderFilter] },
     { matcher: "/admin/draft-orders/*", middlewares: [vendorDraftOrderFilter] },
     { matcher: "/admin/returns", middlewares: [vendorReturnFilter] },
     { matcher: "/admin/returns/*", middlewares: [vendorReturnFilter] },
     {
-  matcher: "/admin/vendor-commission",
-  middlewares: [vendorRouteBlocker],
-},
-{
-  matcher: "/admin/vendor-commission/*",
-  middlewares: [vendorRouteBlocker],
-},
+      matcher: "/admin/vendor-commission",
+      middlewares: [vendorRouteBlocker],
+    },
     {
-    matcher: "/store/products",
-    method: "GET",
-    middlewares: [posChannelFilter],
-  },
+      matcher: "/admin/vendor-commission/*",
+      middlewares: [vendorRouteBlocker],
+    },
+    {
+      matcher: "/store/products",
+      method: "GET",
+      middlewares: [posChannelFilter],
+    },
   ],
 })

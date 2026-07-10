@@ -35,14 +35,14 @@ export default async function erpVariantUpsertHandler({
       return
     }
 
-    const priceAmount = variant.prices?.[0]?.amount
+    const priceAmount = (variant as any).prices?.[0]?.amount
 
     const erpCode = await erpModuleService.syncProductVariant({
       id: variant.id,
       sku: variant.sku,
       title: variant.title,
       product: {
-        title: variant.product?.title,
+        title: variant.product?.title || "",
         description: variant.product?.description || undefined,
       },
       price: priceAmount,

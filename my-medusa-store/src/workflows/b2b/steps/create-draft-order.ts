@@ -50,7 +50,7 @@ export const createDraftOrderStep = createStep(
       metadata: {
         draft_created_at: new Date().toISOString(),
         cart_snapshot: {
-          total: cart.total,
+          total: (cart as any).total,
           item_count: cart.items?.length || 0,
         },
       },

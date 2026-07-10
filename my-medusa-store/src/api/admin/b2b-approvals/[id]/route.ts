@@ -11,7 +11,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     // 2. Update their metadata to "approved"
     const currentMetadata = customer.metadata || {}
-    await customerService.updateCustomers({
+    await (customerService as any).updateCustomers({
       id: customerId,
       metadata: {
         ...currentMetadata,

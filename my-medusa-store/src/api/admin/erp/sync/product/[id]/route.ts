@@ -43,12 +43,17 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       return res.status(404).json({ success: false, message: "Product not found." })
     }
 
-    const syncedVariants = []
+    const syncedVariants: Array<{
+      variant_id: string
+      erp_code?: string
+      success: boolean
+      error?: string
+    }> = []
     if (product.variants && product.variants.length > 0) {
       for (const variant of product.variants) {
         if (!variant.sku) continue
-        
-        const priceAmount = variant.prices?.[0]?.amount
+
+        const priceAmount = (variant as any).prices?.[0]?.amount
 
         try {
           const erpCode = await erpModuleService.syncProductVariant({

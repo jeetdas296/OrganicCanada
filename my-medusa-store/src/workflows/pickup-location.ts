@@ -47,7 +47,7 @@ export const createPickupFulfillmentStep = createStep(
 
     const fulfillment = await fulfillmentService.createFulfillment({
       location_id: input.locationId,
-      items: input.items,
+      items: input.items as any,
       order_id: input.orderId,
       provider_id: "manual",
       delivery_address: {},
@@ -58,7 +58,7 @@ export const createPickupFulfillmentStep = createStep(
         pickup_date: input.pickup_date,
         customer_name: input.customer_name,
       },
-    })
+    } as any)
 
     // Tag the order with pickup info
     await orderService.updateOrders([
