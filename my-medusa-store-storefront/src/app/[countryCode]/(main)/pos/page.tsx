@@ -87,6 +87,13 @@ export default function POSPage() {
     }
   }
 
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to log out?")) {
+      document.cookie = "pos_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      window.location.reload()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-gradient-to-r from-blue-700 to-blue-900 text-white p-4 shadow-lg">
@@ -95,13 +102,21 @@ export default function POSPage() {
             <h1 className="text-2xl font-bold">POS Terminal</h1>
             <p className="text-sm opacity-90">Copenhagen Store</p>
           </div>
-          <div className="text-right">
-            <p className="text-sm opacity-90">
-              {new Date().toLocaleDateString("en-DK")}
-            </p>
-            <p className="text-lg font-semibold">
-              {new Date().toLocaleTimeString("en-DK")}
-            </p>
+          <div className="text-right flex items-center gap-6">
+            <div>
+              <p className="text-sm opacity-90">
+                {new Date().toLocaleDateString("en-DK")}
+              </p>
+              <p className="text-lg font-semibold">
+                {new Date().toLocaleTimeString("en-DK")}
+              </p>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium text-sm transition-colors"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </header>

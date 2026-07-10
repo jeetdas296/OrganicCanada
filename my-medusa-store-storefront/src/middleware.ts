@@ -119,6 +119,19 @@ export async function middleware(request: NextRequest) {
   const urlHasCountryCode =
     countryCode && request.nextUrl.pathname.split("/")[1].includes(countryCode)
 
+  // POS ROUTE PROTECTION
+  // If the path contains /pos but NOT /pos/login, check for pos_token
+  const isPosRoute = request.nextUrl.pathname.match(/\/[a-z]{2}\/pos(\/|$)/)
+  const isPosLoginRoute = request.nextUrl.pathname.match(/\/[a-z]{2}\/pos\/login/)
+  
+  if (isPosRoute && !isPosLoginRoute) {
+    const posToken = request.cookies.get("pos_token")
+    if (!posToken?.value) {
+      const loginUrl = new URL(request.nextUrl.pathname + "/login", request.url)
+      return NextResponse.redirect(loginUrl, 307)
+    }
+  }
+
   // if one of the country codes is in the url and the cache id is set, return next
   if (urlHasCountryCode && cacheIdCookie) {
     return NextResponse.next()
@@ -137,6 +150,8 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.includes(".")) {
     return NextResponse.next()
   }
+
+
 
   const redirectPath =
     request.nextUrl.pathname === "/" ? "" : request.nextUrl.pathname

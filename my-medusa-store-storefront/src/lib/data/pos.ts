@@ -31,11 +31,21 @@ export interface CreatePOSOrderInput {
   pos_terminal_id?: string
 }
 
-// ✅ Use POS key for POS operations
+function getClientCookie(name: string) {
+  if (typeof document !== "undefined") {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+    if (match) return match[2]
+  }
+  return null
+}
+
+// ✅ Use POS key and token for POS operations
 function getPOSHeaders() {
+  const token = getClientCookie("pos_token")
   return {
     "Content-Type": "application/json",
     "x-publishable-api-key": POS_PUBLISHABLE_KEY,
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
   }
 }
 

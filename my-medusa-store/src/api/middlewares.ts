@@ -56,6 +56,20 @@ const vendorRouteBlocker = async (req: MedusaRequest, res: MedusaResponse, next:
 }
 
 // --------------------------------------------------------
+// 1.5. THE STRICT BLOCKER (Hard 403 for Vendors)
+// --------------------------------------------------------
+const vendorStrictBlocker = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
+  const userId = (req as any).auth_context?.actor_id
+  if (!userId) return next()
+
+  const vendorId = await getVendorIdForUser(req, userId)
+  if (vendorId) {
+    return res.status(403).json({ message: "Forbidden. Vendors cannot access this resource." })
+  }
+  next()
+}
+
+// --------------------------------------------------------
 // 2. THE PRODUCT CREATOR
 // --------------------------------------------------------
 const vendorProductCreate = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
@@ -477,6 +491,48 @@ const posChannelFilter = async (
 }
 
 
+// 🟢 POS AUTH BOUNCER
+// Protects all /store/pos routes except /store/pos/auth
+import { verifyToken } from "../modules/pos/utils/auth"
+
+function getCookie(name: string, cookiesHeader: string | undefined): string | null {
+  if (!cookiesHeader) return null
+  const match = cookiesHeader.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  if (match) return match[2]
+  return null
+}
+
+const posAuthBouncer = async (
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) => {
+  console.log("🛡️ [posAuthBouncer] Intercepted path:", req.originalUrl)
+
+  // Allow auth endpoints to pass
+  if (req.originalUrl.includes("/store/pos/auth")) {
+    console.log("🛡️ [posAuthBouncer] Allowing auth route to pass.")
+    return next()
+  }
+
+  const token = getCookie("pos_token", req.headers.cookie) || req.headers.authorization?.split(" ")[1]
+
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized" })
+  }
+
+  const decoded = verifyToken(token)
+  if (!decoded) {
+    return res.status(401).json({ error: "Unauthorized" })
+  }
+
+  // Set the decoded POS user in request for later use if needed
+  (req as any).pos_user = decoded
+
+  next()
+}
+
+
 export default defineMiddlewares({
   routes: [
     {
@@ -507,6 +563,10 @@ export default defineMiddlewares({
     { matcher: "/admin/settings", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/settings/*", middlewares: [vendorRouteBlocker] },
 
+    // Strict block vendors from POS users
+    { matcher: "/admin/pos-users", middlewares: [vendorStrictBlocker] },
+    { matcher: "/admin/pos-users/*", middlewares: [vendorStrictBlocker] },
+
     // Vendor allowances
     { matcher: "/admin/products", middlewares: [vendorProductFilter, vendorProductCreate] },
     { matcher: "/admin/products/*", middlewares: [vendorProductFilter] },
@@ -531,6 +591,14 @@ export default defineMiddlewares({
       matcher: "/store/products",
       method: "GET",
       middlewares: [posChannelFilter],
+    },
+    {
+      matcher: "/store/pos",
+      middlewares: [posAuthBouncer],
+    },
+    {
+      matcher: "/store/pos/*",
+      middlewares: [posAuthBouncer],
     },
   ],
 })

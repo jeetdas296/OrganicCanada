@@ -60,6 +60,11 @@ module.exports = defineConfig({
       resolve: "./src/modules/b2b",
       key: B2B_MODULE,
     },
+    // 🏪 7. The POS Module
+    {
+      resolve: "./src/modules/pos",
+      key: "pos",
+    },
     // 🔌 6. The ERPNext Integration Module
     {
       resolve: "./src/modules/erp",
