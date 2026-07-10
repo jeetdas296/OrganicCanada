@@ -579,6 +579,7 @@ export default defineMiddlewares({
     { matcher: "/admin/draft-orders/*", middlewares: [vendorDraftOrderFilter] },
     { matcher: "/admin/returns", middlewares: [vendorReturnFilter] },
     { matcher: "/admin/returns/*", middlewares: [vendorReturnFilter] },
+
     {
       matcher: "/admin/vendor-commission",
       middlewares: [vendorRouteBlocker],
