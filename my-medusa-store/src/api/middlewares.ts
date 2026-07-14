@@ -533,8 +533,81 @@ const posAuthBouncer = async (
 }
 
 
+// --------------------------------------------------------
+// SECURITY HEADERS & RATE LIMITING
+// --------------------------------------------------------
+const securityHeaders = async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
+  res.setHeader("X-Content-Type-Options", "nosniff")
+  res.setHeader("X-Frame-Options", "DENY")
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+  res.setHeader("Content-Security-Policy", "default-src 'self'")
+  next()
+}
+
+const rateLimits = new Map<string, { count: number, resetTime: number }>()
+
+const rateLimiter = (max: number, windowMs: number) => {
+  return async (req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
+    // Note: socket can be undefined, hence any type assertion
+    const ip = req.headers['x-forwarded-for'] || (req.socket as any)?.remoteAddress || "unknown"
+    const key = `${req.path}-${ip}`
+    const now = Date.now()
+    
+    let record = rateLimits.get(key)
+    if (!record || now > record.resetTime) {
+      record = { count: 1, resetTime: now + windowMs }
+    } else {
+      record.count++
+    }
+    
+    rateLimits.set(key, record)
+    
+    // Cleanup old keys occasionally
+    if (Math.random() < 0.01) {
+      for (const [k, v] of rateLimits.entries()) {
+        if (now > v.resetTime) rateLimits.delete(k)
+      }
+    }
+    
+    if (record.count > max) {
+      return res.status(429).json({ message: "Too many requests. Please try again later." })
+    }
+    next()
+  }
+}
+
+const loginLimiter = rateLimiter(5, 60 * 1000) // 5 per min
+const passwordResetLimiter = rateLimiter(3, 60 * 60 * 1000) // 3 per hour
+
 export default defineMiddlewares({
+  errorHandler: (error: any, req: MedusaRequest, res: MedusaResponse, next: MedusaNextFunction) => {
+    const correlationId = req.headers['x-request-id'] || Math.random().toString(36).substring(7)
+    console.error(`[ERROR ID: ${correlationId}]`, error)
+    
+    res.status(500).json({
+      message: "An internal server error occurred. Please try again later.",
+      correlation_id: correlationId
+    })
+  },
   routes: [
+    {
+      matcher: "/*",
+      middlewares: [securityHeaders],
+    },
+    {
+      matcher: "/auth/*",
+      middlewares: [loginLimiter],
+    },
+    {
+      matcher: "/store/pos/auth/login",
+      method: "POST",
+      middlewares: [loginLimiter],
+    },
+    {
+      matcher: "/auth/customer/emailpass/reset-password",
+      method: "POST",
+      middlewares: [passwordResetLimiter],
+    },
     {
       matcher: "/admin/*",
       middlewares: [vendorApprovalBouncer],

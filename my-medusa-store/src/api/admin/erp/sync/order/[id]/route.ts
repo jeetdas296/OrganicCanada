@@ -11,7 +11,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const userId = (req as any).auth_context?.actor_id
 
   try {
-    // Security: Block vendors from triggering ERP syncs
+    // Security: Block unauthenticated and vendor requests from triggering ERP syncs
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" })
+    }
     if (userId) {
       const { data: users } = await query.graph({
         entity: "user",
@@ -98,6 +101,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     )
     return res.status(200).json({ success: true, erp_name: erpName })
   } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message })
+    console.error("[ERP SYNC ORDER] Error:", error.message)
+    return res.status(500).json({ success: false, error: "Failed to sync order to ERP" })
   }
 }

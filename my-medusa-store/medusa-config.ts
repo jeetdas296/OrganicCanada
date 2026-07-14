@@ -2,15 +2,36 @@ import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 import { B2B_MODULE } from "./src/modules/b2b"
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
+// --- PRE-DEPLOYMENT SECURITY CHECKS ---
+const REQUIRED_ENVS = ["DATABASE_URL", "JWT_SECRET", "COOKIE_SECRET", "STORE_CORS", "ADMIN_CORS", "AUTH_CORS", "STRIPE_API_KEY"];
+for (const env of REQUIRED_ENVS) {
+  if (!process.env[env]) {
+    throw new Error(`CRITICAL ERROR: Environment variable ${env} is not set. The application refuses to start.`);
+  }
+}
+
+if (process.env.STORE_CORS === "*" || process.env.ADMIN_CORS === "*") {
+  throw new Error("CRITICAL ERROR: CORS cannot be set to '*'. Restrict it to your specific frontend domains.");
+}
+
+let databaseUrl = process.env.DATABASE_URL;
+if (process.env.NODE_ENV === "production") {
+  if (!databaseUrl?.includes("sslmode=require")) {
+    console.warn("WARNING: Production database URL should use TLS/SSL (sslmode=require). Appending it now.");
+    databaseUrl += databaseUrl?.includes("?") ? "&sslmode=require" : "?sslmode=require";
+  }
+}
+// --------------------------------------
+
 module.exports = defineConfig({
   projectConfig: {
-    databaseUrl: process.env.DATABASE_URL,
+    databaseUrl: databaseUrl,
     http: {
       storeCors: process.env.STORE_CORS! || "http://localhost:8000",
       adminCors: process.env.ADMIN_CORS || "http://localhost:9000",
       authCors: process.env.AUTH_CORS! || "http://localhost:8000,http://localhost:9000",
-      jwtSecret: process.env.JWT_SECRET || "supersecret",
-      cookieSecret: process.env.COOKIE_SECRET || "supersecret",
+      jwtSecret: process.env.JWT_SECRET as string,
+      cookieSecret: process.env.COOKIE_SECRET as string,
     }
   },
   modules: [

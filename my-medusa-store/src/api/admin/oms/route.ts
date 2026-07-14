@@ -33,7 +33,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     })
   } catch (err: any) {
     console.error("[OMS ROUTE] Error creating draft order:", err.message)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: "Internal server error" })
   }
 }
 
@@ -61,6 +61,6 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     return res.json({ draft_orders: orders })
   } catch (err: any) {
     console.error("[OMS ROUTE] Error fetching draft orders:", err.message)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: "Internal server error" })
   }
 }

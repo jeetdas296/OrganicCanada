@@ -3,19 +3,22 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 // We import Medusa's built-in customer update function!
-import { updateCustomer } from "@lib/data/customer";
+import { updateCustomer, deleteCustomerAccount } from "@lib/data/customer";
+import { useParams } from "next/navigation";
 
 export default function ProfileDetails({ customer }: { customer: any }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
+  const { countryCode } = useParams<{ countryCode: string }>();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const formData = new FormData(e.currentTarget);
-    
+
     // 🛡️ THE FIX: Bundle the actual form fields into an object.
     // Medusa will read these exact fields and update the database!
     const payload = {
@@ -26,26 +29,26 @@ export default function ProfileDetails({ customer }: { customer: any }) {
 
     try {
       // Pass our explicit payload as the first argument!
-      const response: any = await updateCustomer(payload, formData);
-      
+      const response: any = await updateCustomer(payload);
+
       // Catch Medusa's hidden Error Objects
       if (response && typeof response === "object" && response.error) {
         alert(`Medusa Error: ${response.error}`);
         setIsLoading(false);
         return;
       }
-      
+
       // Catch standard string errors
       if (typeof response === "string") {
         alert(`Medusa Error: ${response}`);
         setIsLoading(false);
-        return; 
+        return;
       }
-      
+
       // 🟢 SUCCESS! Close the form and gently ask Next.js to fetch the fresh data
       setIsEditing(false);
       router.refresh();
-      
+
     } catch (error: any) {
       console.error("Error updating profile:", error);
       alert(error.message || "Failed to update profile.");
@@ -53,17 +56,41 @@ export default function ProfileDetails({ customer }: { customer: any }) {
     }
   }
 
+  async function handleDeleteAccount() {
+    if (!window.confirm("Are you sure you want to permanently delete your account? This action cannot be undone.")) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    const result = await deleteCustomerAccount(countryCode);
+    
+    if (result && !result.success) {
+      alert("Failed to delete account: " + result.error);
+      setIsDeleting(false);
+    }
+    // On success, signout will redirect the user.
+  }
+
   return (
     <div className="bg-white rounded-3 shadow-sm p-4 border mb-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4 className="fw-bold m-0">Personal Information</h4>
         {!isEditing && (
-          <button 
-            className="btn btn-sm btn-outline-success fw-bold"
-            onClick={() => setIsEditing(true)}
-          >
-            <i className="icofont-edit me-1"></i> EDIT
-          </button>
+          <div className="d-flex gap-2">
+            <button
+              className="btn btn-sm btn-outline-success fw-bold"
+              onClick={() => setIsEditing(true)}
+            >
+              <i className="icofont-edit me-1"></i> EDIT
+            </button>
+            <button
+              className="btn btn-sm btn-outline-danger fw-bold"
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+            >
+              <i className="icofont-trash me-1"></i> {isDeleting ? "DELETING..." : "DELETE"}
+            </button>
+          </div>
         )}
       </div>
 
@@ -95,9 +122,9 @@ export default function ProfileDetails({ customer }: { customer: any }) {
             <button type="submit" className="btn btn-success fw-bold px-4" disabled={isLoading}>
               {isLoading ? "SAVING..." : "SAVE CHANGES"}
             </button>
-            <button 
-              type="button" 
-              className="btn btn-light fw-bold px-4 border" 
+            <button
+              type="button"
+              className="btn btn-light fw-bold px-4 border"
               onClick={() => setIsEditing(false)}
               disabled={isLoading}
             >

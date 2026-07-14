@@ -5,10 +5,29 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     const query = req.scope.resolve("query")
     const requestedVendorId = req.query.vendor_id as string | undefined
 
+    // --- AUTH CHECK ---
+    const userId = (req as any).auth_context?.actor_id
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" })
+    }
+
     let targetVendor: any = null
 
+    // Determine who the logged-in user is
+    const { data: users } = await query.graph({
+      entity: "user",
+      fields: ["id", "vendor.*"],
+      filters: { id: userId },
+    })
+    const loggedInVendor = users[0]?.vendor || null
+    const isSuperAdmin = !loggedInVendor
+
     if (requestedVendorId) {
-      // Super admin viewing specific vendor
+      // --- IDOR CHECK: Only super admins can view other vendors' stats ---
+      if (!isSuperAdmin && loggedInVendor?.id !== requestedVendorId) {
+        return res.status(403).json({ message: "Forbidden" })
+      }
+
       const { data: vendors } = await query.graph({
         entity: "vendor",
         fields: ["id", "name", "commission_rate"],
@@ -17,18 +36,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       targetVendor = vendors[0]
     } else {
       // Vendor viewing own dashboard
-      const userId = (req as any).auth_context?.actor_id
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" })
-      }
-
-      const { data: users } = await query.graph({
-        entity: "user",
-        fields: ["id", "vendor.*"],
-        filters: { id: userId },
-      })
-
-      targetVendor = users[0]?.vendor || null
+      targetVendor = loggedInVendor
     }
 
     if (!targetVendor) {
@@ -84,6 +92,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       commissionRate,
     })
   } catch (error: any) {
-    return res.status(500).json({ error: error.message || "Internal Server Error" })
+    console.error("[VENDOR STATS] Error:", error.message)
+    return res.status(500).json({ error: "Internal server error" })
   }
 }

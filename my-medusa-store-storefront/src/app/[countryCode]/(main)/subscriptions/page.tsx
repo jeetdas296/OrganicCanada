@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { retrieveCustomer, getCustomerSubscriptions } from "@lib/data/customer"
+import { retrieveCustomer, getCustomerSubscriptions, cancelSubscription } from "@lib/data/customer"
 import { useParams } from "next/navigation"
 
 export default function MySubscriptionsPage() {
@@ -34,26 +34,16 @@ export default function MySubscriptionsPage() {
     loadData()
   }, [])
 
-  // 🟢 THE FRONTEND FIX: Send the cancel request to Medusa
   const handleCancelSubscription = async (subId: string) => {
     if (!confirm("Are you sure you want to cancel your weekly box delivery?")) return
 
     setCancelingId(subId)
-    const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
 
     try {
-      const response = await fetch(`${backendUrl}/store/subscriptions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-publishable-api-key": process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "",
-        },
-        body: JSON.stringify({ subscription_id: subId }),
-      })
+      const result = await cancelSubscription(subId)
 
-      if (response.ok) {
+      if (result.ok) {
         alert("Your subscription has been canceled.")
-        // Refresh the local UI list
         await loadData()
       } else {
         alert("Failed to cancel subscription. Please try again.")

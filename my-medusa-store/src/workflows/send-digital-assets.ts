@@ -53,7 +53,7 @@ const sendDigitalAssetEmailStep = createStep("send-digital-asset-email", async (
     return new StepResponse(null) // Not a digital order, skip!
   }
 
-  console.log(`\n📧 [DELIVERY ENGINE] Sending Digital Goods to: ${data.email}`)
+  console.log(`\n📧 [DELIVERY ENGINE] Sending Digital Goods to: [REDACTED]`)
   console.log(`=======================================================`)
 
   data.digitalAssets.forEach((product: any) => {

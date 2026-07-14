@@ -51,7 +51,7 @@ async function runQuoteTest() {
     const cartId = cartData.cart?.id;
 
     if (!cartId) {
-        return console.log("❌ Failed to create cart:", cartData);
+        return console.log("❌ Failed to create cart. (Data redacted)");
     }
     console.log(`✅ Cart created! ID: ${cartId}`);
 

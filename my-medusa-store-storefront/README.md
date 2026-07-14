@@ -123,3 +123,7 @@ You'll also need to setup the integrations in your Medusa server. See the [Medus
 - [Website](https://nextjs.org/)
 - [GitHub](https://github.com/vercel/next.js)
 - [Documentation](https://nextjs.org/docs)
+
+## ⚠️ SECURITY WARNING
+
+If any secrets or API keys were previously hardcoded in the codebase, they remain in the git history even after being moved to environment variables. Please **rotate any previously hardcoded secrets immediately** to ensure your application remains secure.

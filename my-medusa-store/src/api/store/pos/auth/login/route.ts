@@ -11,7 +11,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const posModule = req.scope.resolve("pos")
 
   try {
-    console.log("➡️ [POS LOGIN] Login attempt for email:", email)
+    console.log("➡️ [POS LOGIN] Login attempt. (Email redacted)")
     const users = await posModule.listPosUsers({ email })
     const user = users[0]
 
@@ -35,7 +35,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     const token = generateToken({ id: user.id, email: user.email, role: user.role })
 
     // Set cookie
-    res.setHeader("Set-Cookie", `pos_token=${token}; HttpOnly; Path=/; Max-Age=43200; SameSite=Lax`)
+    res.setHeader("Set-Cookie", `pos_token=${token}; HttpOnly; Path=/; Max-Age=43200; SameSite=Lax; Secure`)
 
     const { password_hash, ...safeUser } = user
     return res.status(200).json({ message: "Logged in successfully", user: safeUser, token })

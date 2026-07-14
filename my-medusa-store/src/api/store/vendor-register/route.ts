@@ -14,7 +14,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       input: { email, farm_name }
     })
 
-    console.log(`🎉 New Vendor Registered: ${result.vendor.name} (${result.user.email})`)
+    console.log(`🎉 New Vendor Registered: [REDACTED]`)
 
     res.status(200).json({ 
       message: "Application submitted successfully! Awaiting Admin approval.",

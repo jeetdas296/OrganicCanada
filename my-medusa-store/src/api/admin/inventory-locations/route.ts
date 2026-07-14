@@ -51,7 +51,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     return res.json({ inventory_locations: summary })
   } catch (err: any) {
     console.error("[INV-LOC] GET error:", err.message)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: "Internal server error" })
   }
 }
 
@@ -84,6 +84,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     })
   } catch (err: any) {
     console.error("[INV-LOC] POST error:", err.message)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: "Internal server error" })
   }
 }

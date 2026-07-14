@@ -15,7 +15,7 @@ async function runB2BTest() {
   const token = loginData.token; 
 
   if (!token) {
-    return console.log("❌ Login failed! Check your email/password.", loginData);
+    return console.log("❌ Login failed! Check your email/password.", { ...loginData, password: "[REDACTED]" });
   }
   console.log("✅ Login successful! Token received.");
 

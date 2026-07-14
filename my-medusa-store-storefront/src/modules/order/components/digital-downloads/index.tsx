@@ -2,49 +2,33 @@
 
 import { CloudDownload, FileText, ShieldCheck, Sparkles } from "lucide-react"
 import { useEffect, useState } from "react"
+import { fetchDigitalDownloads, type DownloadItem } from "@lib/data/digital-downloads"
 
-// 🟢 THE FIX: We are now correctly accepting the string we pass from the page!
 type DigitalDownloadsWidgetProps = {
-  orderId: string
+  orderId?: string
+  order?: { id: string }
 }
 
 const DigitalDownloadsWidget: React.FC<DigitalDownloadsWidgetProps> = ({
   orderId,
+  order,
 }) => {
-  const [downloads, setDownloads] = useState<any[]>([])
+  const [downloads, setDownloads] = useState<DownloadItem[]>([])
   const [loading, setLoading] = useState(true)
 
+  const resolvedOrderId = orderId || order?.id
+
   useEffect(() => {
-    const fetchSecureDownloads = async () => {
-      try {
-        const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || ""
-        const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
-
-        // 🟢 Fetching with the correct orderId
-        const res = await fetch(`${backendUrl}/store/orders/${orderId}/downloads`, {
-          headers: {
-            "Content-Type": "application/json",
-            "x-publishable-api-key": pubKey,
-          },
-          cache: "no-store",
-        })
-
-        if (!res.ok) throw new Error("Secure asset retrieval rejected by Medusa")
-
-        const data = await res.json()
-        setDownloads(data.downloads || [])
-      } catch (err) {
-        console.error("🚨 STOREFRONT DOWNLOAD ERROR:", err)
-      } finally {
-        setLoading(false)
-      }
+    if (!resolvedOrderId) {
+      setLoading(false)
+      return
     }
 
-    // 🟢 Triggers the fetch perfectly now!
-    if (orderId) {
-      fetchSecureDownloads()
-    }
-  }, [orderId])
+    fetchDigitalDownloads(resolvedOrderId)
+      .then(setDownloads)
+      .catch(() => setDownloads([]))
+      .finally(() => setLoading(false))
+  }, [resolvedOrderId])
 
   const formatAbsoluteUrl = (url: string) => {
     if (url.startsWith("http")) return url

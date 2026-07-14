@@ -2,28 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { login, signup, requestPasswordReset } from "@lib/data/customer";
+import { login, signup, requestPasswordReset, setRememberMeCookie } from "@lib/data/customer";
 
-export default function LoginRegisterForm({ countryCode }: { countryCode: string }) {
+export default function LoginRegisterForm({ countryCode, rememberedEmail }: { countryCode: string, rememberedEmail?: string | null }) {
   const [view, setView] = useState<"login" | "register" | "forgot">("login");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
   // 🟢 1. Create states for email management and rememberMe status
-  const [email, setEmail] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
+  const [email, setEmail] = useState(rememberedEmail || "");
+  const [rememberMe, setRememberMe] = useState(!!rememberedEmail);
   
   const router = useRouter();
-
-  // 🟢 2. Check localStorage on component load to pre-fill the email address safely
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("remembered_email");
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setRememberMe(true);
-    }
-  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,11 +38,7 @@ export default function LoginRegisterForm({ countryCode }: { countryCode: string
         }
       } else if (view === "login") {
         // 🟢 3. Handle rememberMe validation on successful submission pathing
-        if (rememberMe) {
-          localStorage.setItem("remembered_email", email);
-        } else {
-          localStorage.removeItem("remembered_email");
-        }
+        await setRememberMeCookie(rememberMe ? email : null);
 
         const response = await login(null, formData);
         

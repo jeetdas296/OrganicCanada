@@ -39,7 +39,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         customer_group_id: b2bGroupId
     })
 
-    console.log(`✅ B2B Application Approved: ${customer.company_name || customer.email}`)
+    console.log(`✅ B2B Application Approved: [REDACTED]`)
     
     res.status(200).json({ success: true, message: "Wholesaler Approved & Grouped!" })
 

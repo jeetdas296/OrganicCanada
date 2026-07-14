@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { listOrders } from "@lib/data/orders";
 import { retrieveCustomer, signout } from "@lib/data/customer";
-import AddressBook from "components/AddressBook"; 
+import AddressBook from "components/AddressBook";
 import ProfileDetails from "components/ProfileDetails";
 import { redirect } from "next/navigation";
 
@@ -27,15 +27,9 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
       return null;
     });
   }
-  
+
   // 3. Safely extract the orders
   const orders = ordersResponse?.orders || ordersResponse?.data || (Array.isArray(ordersResponse) ? ordersResponse : []);
-  
-  
-  // Print exactly what Medusa hands us to your VS Code terminal!
-  console.log("📦 Medusa Orders Response:", JSON.stringify(ordersResponse, null, 2));
-
-  // Extract the orders whether they are hidden in .orders, .data, or just an array!
 
   const user = customer || {
     first_name: "Guest",
@@ -47,7 +41,7 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
 
   async function handleLogout() {
     "use server";
-    await signout(countryCode); 
+    await signout(countryCode);
   }
 
   return (
@@ -63,13 +57,13 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
       <section className="py-5 bg-light osahan-main-body">
         <div className="container">
           <div className="row">
-            
+
             {/* LEFT SIDEBAR: Navigation Menu */}
             <div className="col-lg-4 mb-4">
               <div className="bg-white rounded-3 shadow-sm p-4 text-center border">
-                <img 
-                  src="https://placehold.co/150x150/198754/FFFFFF/png?text=User" 
-                  alt="Profile Avatar" 
+                <img
+                  src="https://placehold.co/150x150/198754/FFFFFF/png?text=User"
+                  alt="Profile Avatar"
                   className="img-fluid rounded-circle mb-3 shadow-sm"
                   style={{ width: "120px", height: "120px", objectFit: "cover" }}
                 />
@@ -98,10 +92,10 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
                   {/* <Link href="#ChangePassword" className="list-group-item list-group-item-action">
                     <i className="icofont-lock me-2"></i> Reset Password
                   </Link> */}
-                  
+
                   {/* Show Login or Logout depending on if they have a real account */}
                   {user.hasAccount !== false ? (
-                    
+
                     // 🚪 WRAP THE BUTTON IN A FORM TO CALL MEDUSA'S LOGOUT ACTION
                     <form action={handleLogout}>
                       <button type="submit" className="list-group-item list-group-item-action text-danger mt-3 fw-bold border-top w-100 text-start">
@@ -120,17 +114,17 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
 
             {/* RIGHT MAIN CONTENT: Profile Details & Orders */}
             <div className="col-lg-8">
-              
+
               {!customer && (
                 <div className="alert alert-warning border-warning border-opacity-50 shadow-sm mb-4">
                   <h6 className="fw-bold m-0">
-                    <i className="icofont-warning text-warning fs-5 align-middle me-2"></i> 
+                    <i className="icofont-warning text-warning fs-5 align-middle me-2"></i>
                     You are currently viewing a Guest Profile. Please log in to see your real details.
                   </h6>
                 </div>
               )}
 
-{customer && <ProfileDetails customer={customer} />}
+              {customer && <ProfileDetails customer={customer} />}
 
               {customer && (
                 <AddressBook customer={customer} countryCode={countryCode} />

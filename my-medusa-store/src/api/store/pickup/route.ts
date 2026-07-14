@@ -27,7 +27,8 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
     return res.json({ pickup_locations: formatted })
   } catch (err: any) {
-    return res.status(500).json({ error: err.message })
+    console.error("[PICKUP GET] Error:", err.message)
+    return res.status(500).json({ error: "Internal server error" })
   }
 }
 
@@ -60,7 +61,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       fulfillment: result.fulfillment,
     })
   } catch (err: any) {
-    return res.status(500).json({ error: err.message })
+    console.error("[PICKUP POST] Error:", err.message)
+    return res.status(500).json({ error: "Internal server error" })
   }
 }
 
@@ -80,6 +82,7 @@ export async function PATCH(req: MedusaRequest, res: MedusaResponse) {
     })
     return res.json({ message: "Order marked as collected", order_id })
   } catch (err: any) {
-    return res.status(500).json({ error: err.message })
+    console.error("[PICKUP PATCH] Error:", err.message)
+    return res.status(500).json({ error: "Internal server error" })
   }
 }

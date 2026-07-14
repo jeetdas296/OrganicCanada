@@ -39,7 +39,7 @@ export default async function passwordResetHandler({ event }: any) {
       `,
     });
     
-    console.log(`✅ Password reset email successfully sent to ${targetEmail}`);
+    console.log(`✅ Password reset email successfully sent to [REDACTED]`);
   } catch (error) {
     console.error("❌ Failed to send email via Resend:", error);
   }

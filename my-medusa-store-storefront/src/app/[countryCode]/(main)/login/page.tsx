@@ -1,9 +1,51 @@
 import LoginRegisterForm from "components/LoginRegisterForm"; // Adjust import path if needed
 import { retrieveCustomer } from "@lib/data/customer";
 import { redirect } from "next/navigation";
+import { headers, cookies } from "next/headers";
+
+const rateLimits = new Map<string, { count: number, resetTime: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const windowMs = 60 * 1000; // 1 minute
+  const max = 15; // Max 15 loads per minute
+  const now = Date.now();
+  
+  let record = rateLimits.get(ip);
+  if (!record || now > record.resetTime) {
+    record = { count: 1, resetTime: now + windowMs };
+  } else {
+    record.count++;
+  }
+  
+  rateLimits.set(ip, record);
+  
+  // Cleanup occasionally
+  if (Math.random() < 0.01) {
+    Array.from(rateLimits.entries()).forEach(([k, v]) => {
+      if (now > v.resetTime) rateLimits.delete(k);
+    });
+  }
+  
+  return record.count <= max;
+}
 
 export default async function LoginPage(props: { params: Promise<{ countryCode: string }> }) {
   const params = await props.params;
+
+  // 0. Rate limiting block
+  const headersList = await headers();
+  const ip = headersList.get("x-forwarded-for") || "unknown";
+  
+  if (!checkRateLimit(ip)) {
+    return (
+      <div className="bg-light py-5 min-vh-100 d-flex justify-content-center align-items-center">
+        <div className="text-center">
+          <h2 className="fw-bold text-danger mb-3">Too Many Requests</h2>
+          <p className="text-muted">You are doing that too often. Please try again later.</p>
+        </div>
+      </div>
+    );
+  }
   
   // 1. Check if they are already logged in
   const customer = await retrieveCustomer().catch(() => null);
@@ -12,6 +54,10 @@ export default async function LoginPage(props: { params: Promise<{ countryCode: 
   if (customer) {
     redirect(`/${params.countryCode}/profile`);
   }
+
+  // Check for remembered email cookie securely
+  const cookieStore = await cookies();
+  const rememberedEmail = cookieStore.get("remembered_email")?.value || null;
 
   // 3. Otherwise, draw the beautiful auth screen
   return (
@@ -27,7 +73,7 @@ export default async function LoginPage(props: { params: Promise<{ countryCode: 
         <div className="row justify-content-center">
           <div className="col-lg-5 col-md-8 col-sm-10">
             {/* 🎯 Drop our interactive Client Component right here */}
-            <LoginRegisterForm countryCode={params.countryCode} />
+            <LoginRegisterForm countryCode={params.countryCode} rememberedEmail={rememberedEmail} />
           </div>
         </div>
       </div>

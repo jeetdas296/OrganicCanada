@@ -74,3 +74,7 @@ Join our [Discord server](https://discord.com/invite/medusajs) to meet other com
 - [Twitter](https://twitter.com/medusajs)
 - [LinkedIn](https://www.linkedin.com/company/medusajs)
 - [Medusa Blog](https://medusajs.com/blog/)
+
+## ⚠️ SECURITY WARNING
+
+If any secrets or API keys were previously hardcoded in the codebase, they remain in the git history even after being moved to environment variables. Please **rotate any previously hardcoded secrets immediately** to ensure your application remains secure.

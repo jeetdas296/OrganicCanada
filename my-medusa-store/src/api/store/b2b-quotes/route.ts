@@ -2,6 +2,11 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
+  const callerId = (req as any).auth_context?.actor_id
+  if (!callerId) {
+    return res.status(401).json({ message: "Unauthorized" })
+  }
+
   const { cart_id } = req.body as any
   const query = req.scope.resolve("query")
   const orderModule = req.scope.resolve(Modules.ORDER)
@@ -26,6 +31,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
 
     const cart = carts[0]
+
+    // --- IDOR CHECK: Verify the cart belongs to the authenticated customer ---
+    if (cart.customer_id !== callerId) {
+      return res.status(403).json({ message: "Forbidden" })
+    }
 
     // 2. Format the Cart items for the Draft Order
     const draftItems = (cart.items || []).map((item: any) => ({

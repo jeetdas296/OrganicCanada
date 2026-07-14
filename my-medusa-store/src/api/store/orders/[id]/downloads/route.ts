@@ -5,20 +5,27 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const query = req.scope.resolve("query")
   const downloads: any[] = []
 
-  console.log(`\n========================================`)
-  console.log(`🔍 [WIDGET DEBUG] Storefront asking for files on: ${orderId}`)
+  // --- AUTH CHECK ---
+  const callerId = (req as any).auth_context?.actor_id
+  if (!callerId) {
+    return res.status(401).json({ message: "Unauthorized" })
+  }
 
   try {
     const { data: orders } = await query.graph({
       entity: "order",
-      fields: ["id", "items.*", "items.variant_id"],
+      fields: ["id", "customer_id", "items.*", "items.variant_id"],
       filters: { id: orderId }
     })
 
     const order = orders[0]
     if (!order) {
-      console.log("❌ Order not found in database!")
       return res.status(200).json({ downloads })
+    }
+
+    // --- IDOR CHECK: Verify the caller placed this order ---
+    if (order.customer_id !== callerId) {
+      return res.status(403).json({ message: "Forbidden" })
     }
 
     for (const item of order.items ?? []) {

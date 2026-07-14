@@ -39,6 +39,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
 
     return res.status(200).json({ vendors })
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || "Internal Server Error" })
+    console.error("[VENDORS] Error:", error.message)
+    return res.status(500).json({ message: "Internal server error" })
   }
 }

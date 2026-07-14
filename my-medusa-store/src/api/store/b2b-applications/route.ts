@@ -42,7 +42,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     // 3. SAFETY NET: If the frontend failed to create it, force backend creation
     if (!customerId) {
-      console.log(`⚠️ Frontend creation failed. Forcing backend creation for ${email}...`)
+      console.log(`⚠️ Frontend creation failed. Forcing backend creation. (Email redacted)`)
       // Passing a single object instead of an array prevents array-indexing crashes
       const newCustomer = await customerService.createCustomers({
         email: email,
@@ -85,11 +85,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       console.log("Note: Minor group linking warning (can be ignored).")
     }
 
-    console.log(`✅ B2B Auto-Approved & Grouped: ${email}`)
+    console.log(`✅ B2B Auto-Approved & Grouped. (Email redacted)`)
     res.status(200).json({ success: true })
 
   } catch (error: any) {
     console.error("❌ Failed to save B2B application:", error.message)
-    res.status(500).json({ message: error.message || "Internal Server Error" })
+    res.status(500).json({ message: "Internal Server Error" })
   }
 }

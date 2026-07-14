@@ -258,8 +258,10 @@ export const deleteCustomerAddress = async (
 }
 // 🟢 THE FETCH ENGINE: Connects Next.js to our custom Medusa endpoint
 export async function getCustomerSubscriptions(customerId: string) {
+  "use server"
   const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
   const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+  const authHeaders = await getAuthHeaders()
 
   try {
     const response = await fetch(`${backendUrl}/store/subscriptions?customer_id=${customerId}`, {
@@ -267,6 +269,7 @@ export async function getCustomerSubscriptions(customerId: string) {
       headers: {
         "Content-Type": "application/json",
         "x-publishable-api-key": pubKey || "",
+        ...authHeaders,
       },
       next: { revalidate: 0 } // Force fresh data on every load
     })
@@ -276,8 +279,30 @@ export async function getCustomerSubscriptions(customerId: string) {
     const data = await response.json()
     return data.subscriptions || []
   } catch (error) {
-    console.error("❌ Frontend fetch error:", error)
+    console.error("❌ Subscription fetch error")
     return []
+  }
+}
+
+export async function cancelSubscription(subscriptionId: string): Promise<{ ok: boolean }> {
+  "use server"
+  const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
+  const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY
+  const authHeaders = await getAuthHeaders()
+
+  try {
+    const response = await fetch(`${backendUrl}/store/subscriptions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-publishable-api-key": pubKey || "",
+        ...authHeaders,
+      },
+      body: JSON.stringify({ subscription_id: subscriptionId }),
+    })
+    return { ok: response.ok }
+  } catch {
+    return { ok: false }
   }
 }
 
@@ -324,4 +349,46 @@ export const updateCustomerAddress = async (
     .catch((err) => {
       return { success: false, error: err.toString() }
     })
+}
+
+export async function setRememberMeCookie(email: string | null) {
+  "use server"
+  const cookieStore = await cookies()
+  if (email) {
+    cookieStore.set("remembered_email", email, {
+      maxAge: 30 * 24 * 60 * 60,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    })
+  } else {
+    cookieStore.delete("remembered_email")
+  }
+}
+
+export async function deleteCustomerAccount(countryCode: string) {
+  "use server"
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
+    const headers = await getAuthHeaders()
+    
+    const response = await fetch(`${backendUrl}/store/me/delete`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+    })
+    
+    if (!response.ok) {
+      throw new Error("Failed to delete account")
+    }
+
+    // Call signout directly
+    await signout(countryCode)
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
 }

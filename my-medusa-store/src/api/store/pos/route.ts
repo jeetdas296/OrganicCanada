@@ -46,7 +46,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     })
   } catch (err: any) {
     console.error("[POS ROUTE] Error:", err.message)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: "Internal server error" })
   }
 }
 
@@ -85,6 +85,6 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     return res.json({ pos_orders: filtered })
   } catch (err: any) {
     console.error("[POS ROUTE] GET error:", err.message)
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: "Internal server error" })
   }
 }

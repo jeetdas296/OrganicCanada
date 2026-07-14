@@ -131,7 +131,8 @@ export async function setPaymentSessionAction(
   cartId: string,
   providerId: string
 ) {
-  const headers = getStoreHeaders();
+  const authHeaders = await getAuthHeaders();
+  const headers = getStoreHeaders(authHeaders);
 
   try {
     const cartRes = await fetch(`${backendUrl}/store/carts/${cartId}`, {
@@ -298,7 +299,8 @@ return { type: "b2b_quote", quote: data.quote, message: data.message || "" }
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function processCODCheckout(cartId: string) {
-  const headers = getStoreHeaders();
+  const authHeaders = await getAuthHeaders();
+  const headers = getStoreHeaders(authHeaders);
 
   try {
     await setPaymentSessionAction(cartId, "pp_system_default");

@@ -73,7 +73,7 @@ export default async function orderConfirmationHandler({
       `,
     })
 
-    console.log(`✅ Order confirmation email successfully sent to ${order.email}`)
+    console.log(`✅ Order confirmation email successfully sent to [REDACTED]`)
   } catch (error) {
     console.error(`❌ Failed to send order confirmation email for order ${data.id}:`, error)
   }

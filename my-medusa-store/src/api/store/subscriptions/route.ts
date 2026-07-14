@@ -3,10 +3,21 @@ import { SUBSCRIPTION_MODULE } from "../../../modules/subscription"
 
 export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
+    // --- AUTH CHECK ---
+    const callerId = (req as any).auth_context?.actor_id
+    if (!callerId) {
+      return res.status(401).json({ error: "Unauthorized" })
+    }
+
     const customerId = req.query.customer_id as string
     
     if (!customerId) {
       return res.status(400).json({ error: "Customer ID is required" })
+    }
+
+    // --- IDOR CHECK: Verify the caller owns this customer_id ---
+    if (callerId !== customerId) {
+      return res.status(403).json({ error: "Forbidden" })
     }
 
     const subscriptionModuleService = req.scope.resolve(SUBSCRIPTION_MODULE)
@@ -18,7 +29,6 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     })
 
     if (!rawSubscriptions || rawSubscriptions.length === 0) {
-      res.setHeader("Access-Control-Allow-Origin", "*")
       return res.status(200).json({ subscriptions: [] })
     }
 
@@ -52,33 +62,42 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       }
     }))
 
-    res.setHeader("Access-Control-Allow-Origin", "*")
     return res.status(200).json({ subscriptions: hydratedSubscriptions })
 
   } catch (error: any) {
     console.error("❌ Backend subscription endpoint crashed:", error)
-    return res.status(500).json({ error: error.message || "Failed to fetch subscriptions" })
+    return res.status(500).json({ error: "Failed to fetch subscriptions" })
   }
 }
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   try {
+    // --- AUTH CHECK ---
+    const callerId = (req as any).auth_context?.actor_id
+    if (!callerId) {
+      return res.status(401).json({ error: "Unauthorized" })
+    }
+
     const { subscription_id } = req.body as { subscription_id: string }
 
     if (!subscription_id) {
       return res.status(400).json({ error: "Subscription ID is required" })
     }
 
-    // 1. Resolve our custom database module
     const subscriptionModuleService = req.scope.resolve(SUBSCRIPTION_MODULE)
 
-    // 2. 🟢 THE FIX: Update the status column to 'canceled' in Postgres
+    // --- IDOR CHECK: Verify the caller owns this subscription ---
+    const subs = await subscriptionModuleService.listSubscriptions({ id: subscription_id })
+    if (!subs || subs.length === 0 || subs[0].customer_id !== callerId) {
+      return res.status(403).json({ error: "Forbidden" })
+    }
+
+    // 2. Update the status column to 'canceled' in Postgres
     const updatedSubscription = await subscriptionModuleService.updateSubscriptions({
       id: subscription_id,
       status: "canceled",
     })
 
-    res.setHeader("Access-Control-Allow-Origin", "*")
     return res.status(200).json({ 
       success: true, 
       message: "Subscription canceled successfully", 
@@ -87,6 +106,6 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
 
   } catch (error: any) {
     console.error("❌ Backend cancellation failure:", error)
-    return res.status(500).json({ error: error.message || "Failed to cancel subscription" })
+    return res.status(500).json({ error: "Failed to cancel subscription" })
   }
 }
