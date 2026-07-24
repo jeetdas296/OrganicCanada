@@ -4,7 +4,7 @@ import { useState } from "react";
 import { addToCart } from "@lib/data/cart";
 import { useParams, useRouter } from "next/navigation";
 
-export default function AddToCartAction({ variantId, isPersonalizable }: { variantId: string, isPersonalizable?: boolean }) {
+export default function AddToCartAction({ variantId, isPersonalizable, inStock = true }: { variantId: string, isPersonalizable?: boolean, inStock?: boolean }) {
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [personalizationText, setPersonalizationText] = useState("");
@@ -84,11 +84,11 @@ export default function AddToCartAction({ variantId, isPersonalizable }: { varia
       </div>
       
         <button 
-          className="btn btn-success flex-grow-1 fw-bold py-2"
+          className={`btn flex-grow-1 fw-bold py-2 ${!inStock ? 'btn-secondary' : 'btn-success'}`}
           onClick={handleAddToCart}
-          disabled={isAdding}
+          disabled={isAdding || !inStock}
         >
-          {isAdding ? "ADDING..." : "+ ADD TO CART"}
+          {isAdding ? "ADDING..." : !inStock ? "OUT OF STOCK" : "+ ADD TO CART"}
         </button>
       </div>
     </div>

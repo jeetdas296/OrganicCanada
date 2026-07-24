@@ -1,7 +1,7 @@
 import { ArrowUpRightMini } from "@medusajs/icons"
 import { Text } from "@medusajs/ui"
 import { Metadata } from "next"
-import Link from "next/link"
+import Link from "@modules/common/components/localized-client-link"
 
 export const metadata: Metadata = {
   title: "404",

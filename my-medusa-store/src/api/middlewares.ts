@@ -1,5 +1,5 @@
 import { defineMiddlewares } from "@medusajs/framework/http"
-import { MedusaRequest, MedusaResponse, MedusaNextFunction } from "@medusajs/framework/http"
+import { MedusaRequest, MedusaResponse, MedusaNextFunction, authenticate } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 
 // --------------------------------------------------------
@@ -616,6 +616,10 @@ export default defineMiddlewares({
       matcher: "/store/products",
       method: "GET",
       middlewares: [b2bProductFilter],
+    },
+    {
+      matcher: "/store/b2b-quotes/:id/negotiation",
+      middlewares: [authenticate("customer", ["session", "bearer"])],
     },
     {
       matcher: "/store/carts/:id/complete",

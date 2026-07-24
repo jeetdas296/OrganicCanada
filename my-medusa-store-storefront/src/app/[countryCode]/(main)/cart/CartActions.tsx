@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { updateLineItem, deleteLineItem, submitPromotionForm } from "@lib/data/cart";
 import { convertToLocale } from "@lib/util/money";
 
-export default function CartActions({ cart }: { cart: any }) {
+export default function CartActions({ cart, countryCode }: { cart: any, countryCode: string }) {
   const [promoCode, setPromoCode] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [inputValues, setInputValues] = useState<{ [key: string]: string }>(() => {
@@ -25,12 +25,16 @@ export default function CartActions({ cart }: { cart: any }) {
     try {
       const formData = new FormData();
       formData.append("code", promoCode);
-      await submitPromotionForm(null, formData);
-      setPromoCode("");
-      router.refresh();
+      const errorMsg = await submitPromotionForm(null, formData);
+      if (errorMsg) {
+        alert("Invalid or worng promo code");
+      } else {
+        setPromoCode("");
+        router.refresh();
+      }
     } catch (e) {
       console.error(e);
-      alert("Failed to apply promo code. Make sure it is active!");
+      alert("Invalid or worng promo code");
     } finally {
       setIsUpdating(false);
     }
@@ -270,7 +274,7 @@ export default function CartActions({ cart }: { cart: any }) {
           </div>
 
           <Link
-            href={`/${cart.region?.countries?.[0]?.iso_2 || "dk"}/checkout`}
+            href={`/${countryCode}/checkout`}
             className="btn btn-success w-100 py-3 fw-bold d-block text-center text-white text-decoration-none"
           >
             PROCEED TO CHECKOUT <i className="icofont-arrow-right ms-2"></i>

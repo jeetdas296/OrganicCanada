@@ -4,8 +4,8 @@ import CheckoutAddressForm from "./CheckoutAddressForm";
 import { redirect } from "next/navigation";
 import PaymentSelector from "./PaymentSelector";
 import { convertToLocale } from "@lib/util/money";
-import B2BQuoteSubmitButton from "./B2BQuoteSubmitButton"
-import { ensureB2BMetadataOnCart } from "./actions"
+import B2BQuoteSubmitButton from "./B2BQuoteSubmitButton";
+import { ensureB2BMetadataOnCart } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,24 +37,22 @@ export default async function CheckoutPage(props: {
       item.product?.type?.value !== "Digital Product"
   );
 
-  // ── Detect B2B Cart ─────────────────────────────────────────────────────────
+  // ── Detect B2B Cart & Ensure Metadata ───────────────────────────────────────
+  await ensureB2BMetadataOnCart(cart.id);
+  cart = (await retrieveCart()) || cart;
+
   const cartMetadata = (cart.metadata as Record<string, unknown>) || {};
   const isB2BCart =
     cartMetadata.is_b2b === true || cartMetadata.is_b2b === "true";
+  const isB2BApproved = customer?.metadata?.b2b_status === "approved";
 
-const b2bRes = await ensureB2BMetadataOnCart(cart.id)
-console.log("B2B ensure result:", b2bRes)
+  const isB2BQuoteRequired = isB2BApproved || isB2BCart;
 
-console.log("Cart metadata after ensure:", cart.metadata)
-  await ensureB2BMetadataOnCart(cart.id)
-cart = await retrieveCart()
-const isB2BApproved = customer?.metadata?.b2b_status === "approved"
-
-// If you want ALL approved B2B customers to require quote approval:
-const isB2BQuoteRequired = isB2BApproved
-
-// If you want only approved B2B + specific term:
-const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store it
+  // Dynamically read stored payment term from cart metadata
+  const b2bPaymentTerm =
+    (typeof cartMetadata.payment_term === "string"
+      ? cartMetadata.payment_term
+      : null) || "net_30";
 
   // ── Shipping Auto-Selector ──────────────────────────────────────────────────
   const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
@@ -80,7 +78,6 @@ const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store i
     let correctOptionId = options[0].id;
 
     if (!isPureDigitalCart) {
-      // Physical cart: prefer pickup, then any physical option
       const pickupOption = options.find((opt: any) =>
         opt.name?.toLowerCase().includes("pickup")
       );
@@ -93,7 +90,6 @@ const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store i
       if (pickupOption) correctOptionId = pickupOption.id;
       else if (physicalOption) correctOptionId = physicalOption.id;
     } else {
-      // Pure digital cart: force free/digital shipping option
       const digitalOption = options.find(
         (opt: any) =>
           opt.amount === 0 ||
@@ -122,7 +118,6 @@ const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store i
         }
       );
 
-      // Refresh cart to reflect new shipping total
       cart = await retrieveCart();
     } else {
       console.log("✅ Cart already has the correct shipping method.");
@@ -146,7 +141,6 @@ const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store i
     (sum: number, item: any) => sum + item.unit_price * item.quantity,
     0
   );
-  console.log(isB2BQuoteRequired);
 
   return (
     <>
@@ -158,12 +152,9 @@ const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store i
 
       <section className="py-5 bg-light osahan-main-body">
         <div className="container">
-
           <div className="row">
-
             {/* ── LEFT COLUMN ────────────────────────────────────────────── */}
             <div className="col-lg-8 mb-4">
-
               {/* Delivery Address */}
               <CheckoutAddressForm
                 savedAddresses={savedAddresses}
@@ -175,33 +166,32 @@ const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store i
               {isReadyForPayment ? (
                 <div className="bg-white rounded-3 shadow-sm p-4 border">
                   <h5 className="fw-bold mb-4">
-  {isB2BQuoteRequired ? "Submit for Approval" : "Payment Details"}
-</h5>
+                    {isB2BQuoteRequired ? "Submit for Approval" : "Payment Details"}
+                  </h5>
 
-{isB2BQuoteRequired ? (
-  <div className="text-center py-3">
-    <div className="mb-3 text-info fs-1">📋</div>
-    <h6 className="fw-bold">Ready to Submit for Approval</h6>
-    <p className="text-muted small mb-4">
-      Your order will be reviewed by our team. You will receive an email notification once a decision is made.
-    </p>
+                  {isB2BQuoteRequired ? (
+                    <div className="text-center py-3">
+                      <div className="mb-3 text-info fs-1">📋</div>
+                      <h6 className="fw-bold">Ready to Submit for Approval</h6>
+                      <p className="text-muted small mb-4">
+                        Your order will be reviewed by our team. You will receive an email notification once a decision is made.
+                      </p>
 
-    <B2BQuoteSubmitButton cartId={cart.id} />
-  </div>
-) : (
-  <PaymentSelector
-    cart={cart}
-    clientSecret={clientSecret}
-    isPureDigital={isPureDigitalCart}
-    isB2BQuote={false}
-  />
-)}
+                      <B2BQuoteSubmitButton cartId={cart.id} />
+                    </div>
+                  ) : (
+                    <PaymentSelector
+                      cart={cart}
+                      clientSecret={clientSecret}
+                      isPureDigital={isPureDigitalCart}
+                      isB2BQuote={false}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="bg-white rounded-3 shadow-sm p-4 border text-center">
                   <h5 className="text-muted">
-                    <i className="icofont-lock"></i> Please save your delivery
-                    address to see payment options
+                    <i className="icofont-lock"></i> Please save your delivery address to see payment options
                   </h5>
                 </div>
               )}
@@ -326,16 +316,14 @@ const b2bPaymentTerm = "net_30" // or read from customer.metadata if you store i
                   </h4>
                 </div>
 
-                {/* B2B Note: No charge until approval */}
+                {/* B2B Note */}
                 {isB2BQuoteRequired ? (
                   <p className="text-center text-info small mt-3 mb-0">
-                    <i className="icofont-info-circle"></i> No payment charged
-                    until quote is approved
+                    <i className="icofont-info-circle"></i> No payment charged until quote is approved
                   </p>
                 ) : (
                   <p className="text-center text-muted small mt-3 mb-0">
-                    <i className="icofont-lock"></i> Secure checkout powered by
-                    Eatsie
+                    <i className="icofont-lock"></i> Secure checkout powered by Eatsie
                   </p>
                 )}
               </div>

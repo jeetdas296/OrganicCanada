@@ -80,7 +80,12 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
                   <Link href={`/${countryCode}/orders`} className="list-group-item list-group-item-action">
                     <i className="icofont-list me-2"></i> Order History
                   </Link>
-                  <Link href="/wishlist" className="list-group-item list-group-item-action">
+                  {user?.metadata?.b2b_status === "approved" && (
+                    <Link href={`/${countryCode}/b2b-quotes`} className="list-group-item list-group-item-action">
+                      <i className="icofont-document-folder me-2"></i> B2B Quotes
+                    </Link>
+                  )}
+                  <Link href={`/${countryCode}/wishlist`} className="list-group-item list-group-item-action">
                     <i className="icofont-heart me-2"></i> WishList
                   </Link>
                   <Link href={`/${countryCode}/subscriptions`} className="list-group-item list-group-item-action">

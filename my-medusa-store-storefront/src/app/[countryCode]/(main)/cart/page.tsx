@@ -1,7 +1,9 @@
 import { retrieveCart } from "@lib/data/cart";
 import CartActions from "./CartActions";
 
-export default async function CartPage() {
+export default async function CartPage(props: { params: Promise<{ countryCode: string }> }) {
+  const params = await props.params;
+  const countryCode = params.countryCode;
   const cart = await retrieveCart();
 
   if (!cart || cart.items.length === 0) {
@@ -12,7 +14,7 @@ export default async function CartPage() {
     <div className="bg-light py-5">
       <div className="container">
         <h2 className="fw-bold mb-4">Review Your Cart</h2>
-        <CartActions cart={cart} />
+        <CartActions cart={cart} countryCode={countryCode} />
       </div>
     </div>
   );

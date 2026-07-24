@@ -202,30 +202,21 @@ export async function completeCartB2BAware(cartId: string): Promise<
   const { requires_quote, payment_term } = isB2BQuoteRequired(cart.metadata);
 
   if (requires_quote) {
-    console.log(`[B2B] Cart ${cartId} requires quote approval.`);
+    console.log(`[B2B] Cart ${cartId} requires quote approval (${payment_term}).`);
     const response = await fetch(`${backendUrl}/store/carts/${cartId}/complete`, {
-  method: "POST",
-  headers,
-  cache: "no-store",
-})
+      method: "POST",
+      headers,
+      cache: "no-store",
+    });
 
-const data = await response.json()
-if (!response.ok) throw new Error(data.message || "Failed to complete cart")
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to complete cart");
 
-if (data.type !== "b2b_quote") {
-  throw new Error(`Expected b2b_quote but got ${JSON.stringify(data)}`)
-}
+    if (data.type !== "b2b_quote") {
+      throw new Error(`Expected b2b_quote but got ${JSON.stringify(data)}`);
+    }
 
-return { type: "b2b_quote", quote: data.quote, message: data.message || "" }
-
-    // (await cookies()).delete("_medusa_cart_id");
-    // revalidateTag("cart");
-
-    // return {
-    //   type: "b2b_quote",
-    //   quote: data.quote,
-    //   message: data.message || "Your order has been submitted for approval.",
-    // };
+    return { type: "b2b_quote", quote: data.quote, message: data.message || "" };
   }
 
   console.log(`[Checkout] Completing cart ${cartId} as standard order`);
@@ -242,22 +233,19 @@ return { type: "b2b_quote", quote: data.quote, message: data.message || "" }
     throw new Error(data.message || "Failed to complete cart");
   }
 
-  // 🟢 THE FIX: Safely handling Medusa V2 missing order payloads without triggering 400 errors
   if (data.type === "order") {
     let finalOrder = data.order;
 
     if (!finalOrder || !finalOrder.id) {
       console.warn(`[Checkout] Order missing from immediate payload. Polling customer profile...`);
-      
+
       for (let i = 0; i < 4; i++) {
-        // Wait 800ms before checking the database
         await new Promise((resolve) => setTimeout(resolve, 800));
-        
+
         try {
-          // Instead of querying by cart_id (which Medusa blocks), we query the logged-in customer's latest orders!
           const meRes = await fetch(`${backendUrl}/store/customers/me?fields=*orders`, {
             headers,
-            cache: "no-store" 
+            cache: "no-store"
           });
 
           if (meRes.ok) {
@@ -265,8 +253,7 @@ return { type: "b2b_quote", quote: data.quote, message: data.message || "" }
             const orders = meData.customer?.orders || [];
 
             if (orders.length > 0) {
-              // Sort by date to grab the absolute newest order they just placed
-              const sortedOrders = orders.sort((a: any, b: any) => 
+              const sortedOrders = orders.sort((a: any, b: any) =>
                 new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
               );
 
@@ -283,7 +270,7 @@ return { type: "b2b_quote", quote: data.quote, message: data.message || "" }
 
     if (!finalOrder || !finalOrder.id) {
       console.warn("[Checkout] Order indexing severely delayed. Forcing fallback redirect.");
-      finalOrder = { id: `processing_${cartId}` }; 
+      finalOrder = { id: `processing_${cartId}` };
     }
 
     (await cookies()).delete("_medusa_cart_id");
@@ -316,7 +303,7 @@ export async function processCODCheckout(cartId: string) {
     if (!collectionId) throw new Error("Could not initialize COD payment collection.");
 
     await fetch(`${backendUrl}/store/payment-collections/${collectionId}/authorize`, {
-        method: "POST", headers, cache: "no-store",
+      method: "POST", headers, cache: "no-store",
     });
 
     const result = await completeCartB2BAware(cartId);
@@ -382,6 +369,11 @@ export async function completeCartAction(cartId: string) {
   }
 }
 
+/**
+ * 🟢 THE FIX: Updates cart metadata in Medusa BEFORE requesting the B2B quote.
+ * This guarantees the selected payment term (e.g. net_15, net_30, net_60) is saved
+ * on the cart so Medusa carries it directly over to the quote/draft order in the backend!
+ */
 export async function submitB2BQuote(cartId: string, paymentTerm: string = "net_30") {
   const authHeaders = await getAuthHeaders();
   const headers = getStoreHeaders(authHeaders);
@@ -389,12 +381,38 @@ export async function submitB2BQuote(cartId: string, paymentTerm: string = "net_
   const normalizedTerm = paymentTerm.toLowerCase();
 
   try {
+    // 1. Fetch existing cart metadata to preserve other fields
+    const cartRes = await fetch(`${backendUrl}/store/carts/${cartId}`, {
+      headers,
+      cache: "no-store",
+    });
+
+    if (cartRes.ok) {
+      const cartData = await cartRes.json();
+      const currentMetadata = (cartData?.cart?.metadata as Record<string, any>) || {};
+
+      // 2. Persist the chosen net payment term to the Medusa cart metadata
+      await fetch(`${backendUrl}/store/carts/${cartId}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          metadata: {
+            ...currentMetadata,
+            is_b2b: true,
+            payment_term: normalizedTerm,
+          },
+        }),
+        cache: "no-store",
+      });
+    }
+
+    // 3. Post to B2B Quote endpoint with explicit payment_term parameter
     const res = await fetch(`${backendUrl}/store/b2b-quotes`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         cart_id: cartId,
-        payment_term: normalizedTerm 
+        payment_term: normalizedTerm
       }),
       cache: "no-store",
     });
@@ -414,50 +432,48 @@ export async function submitB2BQuote(cartId: string, paymentTerm: string = "net_
     return { success: false, error: error.message };
   }
 }
+
 export async function ensureB2BMetadataOnCart(cartId: string) {
-  // 1) get customer (source of truth for "is B2B?")
-  const rawCustomerData = await retrieveCustomer().catch(() => null)
-  const customer = (rawCustomerData as any)?.customer || rawCustomerData
+  const rawCustomerData = await retrieveCustomer().catch(() => null);
+  const customer = (rawCustomerData as any)?.customer || rawCustomerData;
 
   if (!customer?.id) {
-    return { success: false as const, reason: "not_logged_in" as const }
+    return { success: false as const, reason: "not_logged_in" as const };
   }
 
-  const isApprovedB2B = customer?.metadata?.b2b_status === "approved"
+  const isApprovedB2B = customer?.metadata?.b2b_status === "approved";
   if (!isApprovedB2B) {
-    return { success: true as const, updated: false as const, is_b2b: false as const }
+    return { success: true as const, updated: false as const, is_b2b: false as const };
   }
 
-  // 2) fetch cart (so we don't overwrite existing metadata / user choice)
-  const authHeaders = await getAuthHeaders()
-  const headers = getStoreHeaders(authHeaders)
+  const authHeaders = await getAuthHeaders();
+  const headers = getStoreHeaders(authHeaders);
 
   const cartRes = await fetch(`${backendUrl}/store/carts/${cartId}`, {
     headers,
     cache: "no-store",
-  })
+  });
 
   if (!cartRes.ok) {
-    const err = await cartRes.json().catch(() => ({}))
+    const err = await cartRes.json().catch(() => ({}));
     return {
       success: false as const,
       reason: (err?.message || "failed_to_fetch_cart") as const,
-    }
+    };
   }
 
-  const cartData = await cartRes.json()
-  const cart = cartData?.cart
+  const cartData = await cartRes.json();
+  const cart = cartData?.cart;
 
-  const currentMetadata = (cart?.metadata as Record<string, any>) || {}
+  const currentMetadata = (cart?.metadata as Record<string, any>) || {};
 
-  // 3) If already marked B2B and has a payment term, do nothing (idempotent)
   const alreadyB2B =
-    currentMetadata.is_b2b === true || currentMetadata.is_b2b === "true"
+    currentMetadata.is_b2b === true || currentMetadata.is_b2b === "true";
 
   const existingTerm =
     typeof currentMetadata.payment_term === "string"
       ? currentMetadata.payment_term
-      : null
+      : null;
 
   if (alreadyB2B && existingTerm) {
     return {
@@ -465,11 +481,10 @@ export async function ensureB2BMetadataOnCart(cartId: string) {
       updated: false as const,
       is_b2b: true as const,
       payment_term: existingTerm,
-    }
+    };
   }
 
-  // 4) Otherwise set defaults ONCE (do not overwrite later)
-  const defaultTerm = "net_30"
+  const defaultTerm = "net_30";
 
   const updateRes = await fetch(`${backendUrl}/store/carts/${cartId}`, {
     method: "POST",
@@ -479,21 +494,19 @@ export async function ensureB2BMetadataOnCart(cartId: string) {
         ...currentMetadata,
         is_b2b: true,
         payment_term: existingTerm || defaultTerm,
-
-        // Optional debugging fields
         b2b_customer_id: customer.id,
         b2b_status: "approved",
       },
     }),
     cache: "no-store",
-  })
+  });
 
   if (!updateRes.ok) {
-    const err = await updateRes.json().catch(() => ({}))
+    const err = await updateRes.json().catch(() => ({}));
     return {
       success: false as const,
       reason: (err?.message || "failed_to_update_cart") as const,
-    }
+    };
   }
 
   return {
@@ -501,42 +514,51 @@ export async function ensureB2BMetadataOnCart(cartId: string) {
     updated: true as const,
     is_b2b: true as const,
     payment_term: existingTerm || defaultTerm,
-  }
+  };
 }
+
 export async function setB2BPaymentTerm(cartId: string, paymentTerm: string) {
-  const authHeaders = await getAuthHeaders()
-  const headers = getStoreHeaders(authHeaders)
+  const authHeaders = await getAuthHeaders();
+  const headers = getStoreHeaders(authHeaders);
 
-  const normalized = paymentTerm.toLowerCase()
+  const normalized = paymentTerm.toLowerCase();
 
-  // Only allow approved terms
   if (!APPROVAL_REQUIRED_TERMS.includes(normalized)) {
-    throw new Error(`Invalid payment term: ${paymentTerm}`)
+    throw new Error(`Invalid payment term: ${paymentTerm}`);
   }
 
-  const rawCustomerData = await retrieveCustomer().catch(() => null)
-  const customer = (rawCustomerData as any)?.customer || rawCustomerData
+  const rawCustomerData = await retrieveCustomer().catch(() => null);
+  const customer = (rawCustomerData as any)?.customer || rawCustomerData;
 
   if (!customer?.id || customer?.metadata?.b2b_status !== "approved") {
-    throw new Error("Not allowed")
+    throw new Error("Not allowed");
   }
+
+  const cartRes = await fetch(`${backendUrl}/store/carts/${cartId}`, {
+    headers,
+    cache: "no-store",
+  });
+
+  const cartData = await cartRes.json().catch(() => ({}));
+  const currentMetadata = (cartData?.cart?.metadata as Record<string, any>) || {};
 
   const res = await fetch(`${backendUrl}/store/carts/${cartId}`, {
     method: "POST",
     headers,
     body: JSON.stringify({
       metadata: {
+        ...currentMetadata,
         is_b2b: true,
         payment_term: normalized,
       },
     }),
     cache: "no-store",
-  })
+  });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.message || "Failed to set payment term")
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || "Failed to set payment term");
   }
 
-  return { success: true }
+  return { success: true };
 }

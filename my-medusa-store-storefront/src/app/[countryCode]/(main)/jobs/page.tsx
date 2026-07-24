@@ -1,6 +1,7 @@
 import Link from 'next/link';
-
-export default function JobsPage() {
+export default async function JobsPage(props: { params: Promise<{ countryCode: string }> }) {
+  const params = await props.params;
+  const countryCode = params.countryCode;
   return (
     <>
       <section className="pt-5 bg-success">
@@ -18,7 +19,6 @@ export default function JobsPage() {
           </svg>
         </div>
       </section>
-
       <section className="py-5 bg-white">
         <div className="container my-5 text-center">
           <div className="mb-5">
@@ -26,10 +26,10 @@ export default function JobsPage() {
           </div>
           <h2 className="fw-bolder mb-3">No Open Positions</h2>
           <p className="lead fw-normal text-muted mb-4">
-            We are currently fully staffed, but we are always looking for passionate people. <br/>
+            We are currently fully staffed, but we are always looking for passionate people. <br />
             Check back soon or drop us a line on our Contact page!
           </p>
-          <Link href="/contact" className="btn btn-outline-success rounded-pill py-3 px-4 btn-lg">
+          <Link href={`/${countryCode}/contact`} className="btn btn-outline-success rounded-pill py-3 px-4 btn-lg">
             Get in touch
           </Link>
         </div>

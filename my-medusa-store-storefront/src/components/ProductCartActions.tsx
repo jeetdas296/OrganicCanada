@@ -1,12 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { addToCart } from "@lib/data/cart";
 import { convertToLocale } from "@lib/util/money"; // 🟢 IMPORT ADDED
 
 export default function ProductCardActions({ product, countryCode }: { product: any, countryCode: string }) {
   const [isAdding, setIsAdding] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
+
+  const inStock = useMemo(() => {
+    const selectedVariant = product?.variants?.[0];
+    if (!selectedVariant) return false;
+    
+    // If we don't manage inventory, we can always add to cart
+    if (!selectedVariant.manage_inventory) return true;
+
+    // If we allow back orders on the variant, we can add to cart
+    if (selectedVariant.allow_backorder) return true;
+
+    // If there is inventory available, we can add to cart
+    if (selectedVariant.manage_inventory && (selectedVariant.inventory_quantity || 0) > 0) return true;
+
+    return false;
+  }, [product]);
 
   // 1. Check if item is already in wishlist when component loads
   useEffect(() => {
@@ -100,11 +116,13 @@ export default function ProductCardActions({ product, countryCode }: { product: 
         {/* Add to Cart Icon Button */}
         <button 
           onClick={handleAddToCart}
-          disabled={isAdding}
-          className="btn btn-success btn-sm flex-grow-1 fw-bold"
+          disabled={isAdding || !inStock}
+          className={`btn btn-sm flex-grow-1 fw-bold ${!inStock ? 'btn-secondary' : 'btn-success'}`}
         >
           {isAdding ? (
             <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+          ) : !inStock ? (
+            <>Out of stock</>
           ) : (
             <><i className="bi bi-cart-plus me-1"></i> Add to Cart</>
           )}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { convertToLocale } from "@lib/util/money";
 import DigitalDownloadsWidget from "@modules/order/components/digital-downloads";
+import LocalizedClientLink from "@modules/common/components/localized-client-link";
 
 export default function OrderHistory({
   orders,
@@ -19,9 +20,9 @@ export default function OrderHistory({
         </div>
         <h5 className="fw-bold">No orders yet!</h5>
         <p className="text-muted">When you place an order, your receipt will appear here.</p>
-        <Link href="/us/listing" className="btn btn-success px-4 fw-bold mt-2">
+        <LocalizedClientLink href="/listing" className="btn btn-success px-4 fw-bold mt-2">
           START SHOPPING
-        </Link>
+        </LocalizedClientLink>
       </div>
     );
   }

@@ -215,11 +215,11 @@ export default async function B2BSuccessPage({
               {/* ── Action Buttons ────────────────────────────────────────── */}
               <div className="d-flex flex-column flex-sm-row gap-3 justify-content-center">
                 <Link
-                  href={`/${countryCode}/account/orders`}
+                  href={`/${countryCode}/b2b-quotes/`}
                   className="btn btn-success btn-lg px-5"
                 >
                   <i className="icofont-list me-2"></i>
-                  View My Orders
+                  View My Quotes
                 </Link>
                 <Link
                   href={`/${countryCode}/listing`}

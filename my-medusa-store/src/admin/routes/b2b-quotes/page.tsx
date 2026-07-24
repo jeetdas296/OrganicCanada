@@ -1,7 +1,8 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { DocumentText } from "@medusajs/icons"
-import { Container, Heading, Table, Badge, Button, toast } from "@medusajs/ui"
+import { Container, Heading, Table, Badge, Button, toast, Drawer } from "@medusajs/ui"
 import { useEffect, useState } from "react"
+import { QuoteNegotiation } from "../../components/quote-negotiation"
 
 export default function B2BQuotesPage() {
   const [quotes, setQuotes] = useState<any[]>([])
@@ -65,11 +66,28 @@ export default function B2BQuotesPage() {
                   <Badge color="orange">Pending Review</Badge>
                 </Table.Cell>
                 <Table.Cell className="text-right">
-                  <a href={`/app/draft-orders/${quote.id}`}>
-                    <Button variant="secondary" size="small">
-                      Review Quote
-                    </Button>
-                  </a>
+                  <div className="flex items-center justify-end gap-x-2">
+                    <a href={`/app/draft-orders/${quote.id}`}>
+                      <Button variant="transparent" size="small">
+                        View Draft Order
+                      </Button>
+                    </a>
+                    <Drawer>
+                      <Drawer.Trigger asChild>
+                        <Button variant="secondary" size="small">
+                          Quote Chat
+                        </Button>
+                      </Drawer.Trigger>
+                      <Drawer.Content className="z-50 max-w-lg right-0 left-auto border-l rounded-none">
+                        <Drawer.Header>
+                          <Drawer.Title>Quote Negotiation</Drawer.Title>
+                        </Drawer.Header>
+                        <Drawer.Body className="p-4 bg-ui-bg-subtle h-full overflow-y-auto">
+                          <QuoteNegotiation draftOrderId={quote.id} isB2bQuote={true} />
+                        </Drawer.Body>
+                      </Drawer.Content>
+                    </Drawer>
+                  </div>
                 </Table.Cell>
               </Table.Row>
             ))}

@@ -1,13 +1,42 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 
+export async function GET(req: MedusaRequest, res: MedusaResponse) {
+  const callerId = (req as any).auth_context?.actor_id
+  if (!callerId) {
+    return res.status(401).json({ message: "Unauthorized" })
+  }
+
+  const query = req.scope.resolve("query")
+
+  try {
+    const { data: quotes } = await query.graph({
+      entity: "order",
+      fields: [
+        "id", "email", "currency_code", "total", "subtotal", "created_at", "status",
+        "items.*", "metadata", "customer_id"
+      ],
+      filters: {
+        customer_id: callerId,
+      }
+    })
+
+    // Filter down to only those that are B2B quotes and draft orders (or pending)
+    const b2bQuotes = quotes.filter((q: any) => q.metadata?.is_b2b_quote === true)
+
+    return res.status(200).json({ quotes: b2bQuotes })
+  } catch (error: any) {
+    return res.status(500).json({ message: "Internal Server Error fetching quotes." })
+  }
+}
+
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const callerId = (req as any).auth_context?.actor_id
   if (!callerId) {
     return res.status(401).json({ message: "Unauthorized" })
   }
 
-  const { cart_id } = req.body as any
+  const { cart_id, payment_term } = req.body as any
   const query = req.scope.resolve("query")
   const orderModule = req.scope.resolve(Modules.ORDER)
 
@@ -16,11 +45,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       return res.status(400).json({ message: "Cart ID is required to generate a quote." })
     }
 
-    // 1. Fetch the full Cart from the database
+    // 🟢 1. Query the cart including sales_channel_id & metadata fields
     const { data: carts } = await query.graph({
       entity: "cart",
       fields: [
-        "id", "email", "currency_code", "region_id", "customer_id",
+        "id", "email", "currency_code", "region_id", "customer_id", "sales_channel_id", "metadata",
         "items.*", "shipping_address.*", "billing_address.*"
       ],
       filters: { id: cart_id }
@@ -32,12 +61,16 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     const cart = carts[0]
 
-    // --- IDOR CHECK: Verify the cart belongs to the authenticated customer ---
     if (cart.customer_id !== callerId) {
       return res.status(403).json({ message: "Forbidden" })
     }
 
-    // 2. Format the Cart items for the Draft Order
+    // 🟢 2. Resolve selected payment term (from req.body first, then cart metadata, fallback to net_30)
+    const selectedPaymentTerm =
+      payment_term ||
+      (typeof cart.metadata?.payment_term === "string" ? cart.metadata.payment_term : null) ||
+      "net_30"
+
     const draftItems = (cart.items || []).map((item: any) => ({
       title: item.title,
       quantity: item.quantity,
@@ -46,7 +79,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       variant_id: item.variant_id,
     }))
 
-    // 3. 🟢 Create the Draft Order and flag it as a B2B Quote!
+    // 🟢 3. Merge existing metadata and explicitly save payment_term onto the created order
     const draftOrder = await orderModule.createOrders({
       is_draft_order: true,
       email: cart.email || "b2b-partner@quote.com",
@@ -58,15 +91,19 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       items: draftItems,
       sales_channel_id: cart.sales_channel_id,
       metadata: {
-        is_b2b_quote: true, // This is what your Admin UI looks for!
-        original_cart_id: cart.id
+        ...(cart.metadata || {}),
+        is_b2b_quote: true,
+        original_cart_id: cart.id,
+        payment_term: selectedPaymentTerm,
+        is_b2b: true,
       }
     } as any)
 
-    const draftOrderId = Array.isArray(draftOrder) ? draftOrder[0]?.id : (draftOrder as any).id
-    console.log(`🧾 🎉 B2B Net-30 Quote Generated: ${draftOrderId}`)
+    console.log("Draft Order:", draftOrder)
 
-    // 4. Return success so the Next.js Storefront can redirect to the Success Page
+    const draftOrderId = Array.isArray(draftOrder) ? draftOrder[0]?.id : (draftOrder as any).id
+    console.log(`🧾 🎉 Quote Generated: ${draftOrderId}`)
+
     res.status(200).json({ success: true, draft_order_id: draftOrderId })
 
   } catch (error: any) {

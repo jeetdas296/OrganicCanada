@@ -27,6 +27,19 @@ import {
 } from "@medusajs/medusa/core-flows";
 import { ApiKey } from "../../.medusa/types/query-entry-points";
 
+import { seedVendors } from "./seeds/seed-vendors";
+import { seedB2B } from "./seeds/seed-b2b";
+import { seedPOS } from "./seeds/seed-pos";
+import { seedBundleProducts } from "./seeds/seed-bundle-products";
+import { seedDigitalProducts } from "./seeds/seed-digital-products";
+import { seedPickupLocations } from "./seeds/seed-pickup-locations";
+import { seedSubscriptions } from "./seeds/seed-subscriptions";
+import { seedOMS } from "./seeds/seed-oms";
+import { seedERP } from "./seeds/seed-erp";
+import { seedCustomers } from "./seeds/seed-customers";
+import { seedProducts } from "./seeds/seed-products";
+import seedOmnichannel from "./seed-omnichannel";
+
 const updateStoreCurrencies = createWorkflow(
   "update-store-currencies",
   (input: {
@@ -55,7 +68,7 @@ const updateStoreCurrencies = createWorkflow(
   }
 );
 
-export default async function seedDemoData({ container }: ExecArgs) {
+async function originalMedusaSeed({ container }: ExecArgs) {
   const logger = container.resolve(ContainerRegistrationKeys.LOGGER);
   const link = container.resolve(ContainerRegistrationKeys.LINK);
   const query = container.resolve(ContainerRegistrationKeys.QUERY);
@@ -63,7 +76,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
   const salesChannelModuleService = container.resolve(Modules.SALES_CHANNEL);
   const storeModuleService = container.resolve(Modules.STORE);
 
-  const countries = ["gb", "de", "dk", "se", "fr", "es", "it", "us"];
+  const countries = ["gb", "de", "dk", "se", "fr", "es", "it", "us", "ca"];
 
   logger.info("Seeding store data...");
   const [store] = await storeModuleService.listStores();
@@ -123,13 +136,13 @@ export default async function seedDemoData({ container }: ExecArgs) {
         {
           name: "North America",
           currency_code: "usd",
-          countries: ["us"],
-          payment_providers: ["pp_system_default", "stripe"], 
+          countries: ["ca"],
+          payment_providers: ["pp_system_default", "stripe"],
         },
       ],
     },
   });
-  
+
   const region = regionResult[0];
   logger.info("Finished seeding regions.");
 
@@ -235,7 +248,7 @@ export default async function seedDemoData({ container }: ExecArgs) {
             country_code: "it",
             type: "country",
           },
-           {
+          {
             country_code: "us",
             type: "country",
           },
@@ -930,4 +943,29 @@ export default async function seedDemoData({ container }: ExecArgs) {
   });
 
   logger.info("Finished seeding inventory levels data.");
+}
+
+export default async function runAllSeeds(args: ExecArgs) {
+  const { container } = args;
+  const logger = container.resolve("logger");
+
+  logger.info("Starting Original Medusa Seed...");
+  await originalMedusaSeed(args);
+  logger.info("✓ Original Medusa seed completed");
+
+  logger.info("Starting Custom Seeds...");
+  await seedVendors(args);
+  await seedB2B(args);
+  await seedOmnichannel(args);
+  await seedPOS(args);
+  await seedBundleProducts(args);
+  await seedDigitalProducts(args);
+  await seedPickupLocations(args);
+  await seedSubscriptions(args);
+  await seedOMS(args);
+  await seedERP(args);
+  await seedCustomers(args);
+  await seedProducts(args);
+
+  logger.info("✓ All custom recipes seeded successfully");
 }

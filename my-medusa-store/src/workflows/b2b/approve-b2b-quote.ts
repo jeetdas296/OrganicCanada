@@ -9,6 +9,7 @@ import {
   useRemoteQueryStep,
   completeCartWorkflow,
 } from "@medusajs/medusa/core-flows"
+import { Modules } from "@medusajs/framework/utils"
 import { B2B_MODULE } from "../../modules/b2b"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { MedusaError } from "@medusajs/framework/utils"
@@ -116,6 +117,26 @@ const linkQuoteToOrderStep = createStep(
   }
 )
 
+// ─── Step: Update Order Metadata ────────────────────────────────────────────────
+const updateOrderMetadataStep = createStep(
+  "update-order-metadata-step",
+  async (
+    input: { order_id: string; draft_order_id: string },
+    { container }
+  ) => {
+    const orderService = container.resolve(Modules.ORDER)
+
+    await orderService.updateOrders([{
+      id: input.order_id,
+      metadata: {
+        draft_order_id: input.draft_order_id
+      }
+    }])
+
+    return new StepResponse({ updated: true })
+  }
+)
+
 // ─── Approve Quote Workflow ────────────────────────────────────────────────────
 export type ApproveB2BQuoteWorkflowInput = {
   quote_id: string
@@ -146,6 +167,12 @@ export const approveB2BQuoteWorkflow = createWorkflow(
     linkQuoteToOrderStep({
       quote_id: input.quote_id,
       order_id: order.id,
+    })
+
+    // Step 5: Persist original draft order id into order metadata
+    updateOrderMetadataStep({
+      order_id: order.id,
+      draft_order_id: quote.draft_order_id as string
     })
 
     return new WorkflowResponse({

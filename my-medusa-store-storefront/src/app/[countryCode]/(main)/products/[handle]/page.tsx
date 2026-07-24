@@ -116,6 +116,7 @@ currency_code: calculatedPriceObj.currency_code || "eur"
           <AddToCartAction 
             variantId={selectedVariant?.id} 
             isPersonalizable={product.metadata?.is_personalizable === "true" || product.metadata?.is_personalizable === true}
+            inStock={inStock}
           />
 
           <hr />

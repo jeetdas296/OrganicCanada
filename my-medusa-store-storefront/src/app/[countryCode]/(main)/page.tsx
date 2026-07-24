@@ -1,10 +1,11 @@
 import Link from 'next/link';
 // ✅ IMPORT YOUR CUSTOM SDK FUNCTION HERE
 // Adjust the path "@lib/data/categories" if your file is named something else!
-import { listCategories } from "@lib/data/categories"; 
+import { listCategories } from "@lib/data/categories";
 
-export default async function Home() {
-  // 1. Fetch real product categories using your built-in Medusa function
+export default async function Home(props: { params: Promise<{ countryCode: string }> }) {
+  const params = await props.params;
+  const countryCode = params.countryCode;
   let categories: any[] = [];
   try {
     // Calling your function to get the categories
@@ -39,11 +40,9 @@ export default async function Home() {
           <div id="carouselExampleFade" className="carousel slide carousel-fade mb-4" data-bs-ride="carousel">
             <div className="carousel-inner rounded">
               <div className="carousel-item active">
-                <Link href="/listing"><img src="/img/banner1.png" className="d-block w-100" alt="Banner 1" /></Link>
-              </div>
+                <Link href={`/${countryCode}/listing`}><img src="/img/banner1.png" className="d-block w-100" alt="Banner 1" /></Link>              </div>
               <div className="carousel-item">
-                <Link href="/packages"><img src="/img/banner2.png" className="d-block w-100" alt="Banner 2" /></Link>
-              </div>
+                <Link href={`/${countryCode}/packages`}><img src="/img/banner2.png" className="d-block w-100" alt="Banner 2" /></Link>              </div>
             </div>
             <button className="carousel-control-prev" type="button" data-bs-target="#carouselExampleFade" data-bs-slide="prev">
               <span className="carousel-control-prev-icon" aria-hidden="true"></span>
@@ -55,10 +54,10 @@ export default async function Home() {
             </button>
           </div>
           <div className="row row-cols-2 row-cols-md-4 row-cols-lg-4 g-4">
-            <div className="col"><Link href="/listing"><img src="/img/l1.png" alt="#" className="img-fluid rounded-3" /></Link></div>
-            <div className="col"><Link href="/listing"><img src="/img/l3.png" alt="#" className="img-fluid rounded-3" /></Link></div>
-            <div className="col"><Link href="/listing"><img src="/img/l4.png" alt="#" className="img-fluid rounded-3" /></Link></div>
-            <div className="col"><Link href="/listing"><img src="/img/l2.png" alt="#" className="img-fluid rounded-3" /></Link></div>
+            <div className="col"><Link href={`/${countryCode}/listing`}><img src="/img/l1.png" alt="#" className="img-fluid rounded-3" /></Link></div>
+            <div className="col"><Link href={`/${countryCode}/listing`}><img src="/img/l3.png" alt="#" className="img-fluid rounded-3" /></Link></div>
+            <div className="col"><Link href={`/${countryCode}/listing`}><img src="/img/l4.png" alt="#" className="img-fluid rounded-3" /></Link></div>
+            <div className="col"><Link href={`/${countryCode}/listing`}><img src="/img/l2.png" alt="#" className="img-fluid rounded-3" /></Link></div>
           </div>
         </div>
       </section>
@@ -68,17 +67,16 @@ export default async function Home() {
         <div className="container py-5">
           <div className="d-flex align-items-center justify-content-between mb-4">
             <h5 className="mb-0 fw-bold">Explore our Categories</h5>
-            <Link className="text-decoration-none text-success" href="/listing">View All <i className="bi bi-arrow-right-circle-fill ms-1"></i></Link>
-          </div>
-          
+            <Link className="text-decoration-none text-success" href={`/${countryCode}/listing`}>View All <i className="bi bi-arrow-right-circle-fill ms-1"></i></Link>          </div>
+
           <div className="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-4 homepage-products-range">
-            
+
             {/* ✅ DYNAMIC MAPPING: If Medusa has Categories, map over them! */}
             {categories && categories.length > 0 ? (
               categories.map((category: any, index: number) => {
                 // Dynamically assign an image from your template (1 through 12) based on the loop index
                 const imgIndex = (index % 12) + 1;
-                
+
                 return (
                   <div className="col" key={category.id}>
                     <div className="text-center position-relative border rounded pb-4">
@@ -88,8 +86,7 @@ export default async function Home() {
                         <p className="card-text small text-success">Explore items</p>
                       </div>
                       {/* Linking dynamically to a specific category handle */}
-                      <Link href={`/categories/${category.handle}`} className="stretched-link"></Link> 
-                    </div>
+                      <Link href={`/${countryCode}/categories/${category.handle}`} className="stretched-link"></Link>                    </div>
                   </div>
                 );
               })
@@ -103,7 +100,7 @@ export default async function Home() {
                       <h6 className="card-title mb-1 fs-14">Fresh Milk</h6>
                       <p className="card-text small text-success">Explore items</p>
                     </div>
-                    <Link href="/listing" className="stretched-link"></Link>
+                    <Link href={`/${countryCode}/listing`} className="stretched-link"></Link>
                   </div>
                 </div>
                 <div className="col">
@@ -113,7 +110,7 @@ export default async function Home() {
                       <h6 className="card-title mb-1 fs-14">Vegetables</h6>
                       <p className="card-text small text-success">Explore items</p>
                     </div>
-                    <Link href="/listing" className="stretched-link"></Link>
+                    <Link href={`/${countryCode}/listing`} className="stretched-link"></Link>
                   </div>
                 </div>
               </>
@@ -127,16 +124,16 @@ export default async function Home() {
         <div className="container">
           <div className="row g-4">
             <div className="col-md-3 col-6">
-              <Link href="/listing"><img src="/img/slider1.jpg" className="img-fluid rounded-3" alt="Slider 1" /></Link>
+              <Link href={`/${countryCode}/listing`}><img src="/img/slider1.jpg" className="img-fluid rounded-3" alt="Slider 1" /></Link>
             </div>
             <div className="col-md-3 col-6">
-              <Link href="/listing"><img src="/img/slider2.jpg" className="img-fluid rounded-3" alt="Slider 2" /></Link>
+              <Link href={`/${countryCode}/listing`}><img src="/img/slider2.jpg" className="img-fluid rounded-3" alt="Slider 2" /></Link>
             </div>
             <div className="col-md-3 col-6">
-              <Link href="/listing"><img src="/img/slider3.jpg" className="img-fluid rounded-3" alt="Slider 3" /></Link>
+              <Link href={`/${countryCode}/listing`}><img src="/img/slider3.jpg" className="img-fluid rounded-3" alt="Slider 3" /></Link>
             </div>
             <div className="col-md-3 col-6">
-              <Link href="/listing"><img src="/img/slider4.jpg" className="img-fluid rounded-3" alt="Slider 4" /></Link>
+              <Link href={`/${countryCode}/listing`}><img src="/img/slider4.jpg" className="img-fluid rounded-3" alt="Slider 4" /></Link>
             </div>
           </div>
         </div>

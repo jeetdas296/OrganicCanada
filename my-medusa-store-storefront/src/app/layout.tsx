@@ -20,7 +20,7 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/icofont@1.0.0/dist/icofont.min.css" />
       </head>
       {/* Added the bg-light class from your template's <body> tag */}
-      <body className="bg-light"> 
+      <body className="bg-light">
         <main>{children}</main>
         <Footer />
       </body>

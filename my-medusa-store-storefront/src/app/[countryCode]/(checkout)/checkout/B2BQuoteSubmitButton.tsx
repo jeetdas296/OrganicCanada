@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { submitB2BQuote, clearStaleCartCookie } from "./actions";
+import { submitB2BQuote, setB2BPaymentTerm, clearStaleCartCookie } from "./actions";
 
 const TERMS = ["net_15", "net_30", "net_60", "net_90", "upon_approval"];
 
@@ -14,6 +14,15 @@ export default function B2BQuoteSubmitButton({ cartId }: { cartId: string }) {
   const router = useRouter();
   const params = useParams();
   const countryCode = (params.countryCode as string) || "us";
+
+  const handleTermChange = async (newTerm: string) => {
+    setSelectedTerm(newTerm);
+    try {
+      await setB2BPaymentTerm(cartId, newTerm);
+    } catch (e) {
+      console.error("Failed to sync term on change:", e);
+    }
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -42,10 +51,10 @@ export default function B2BQuoteSubmitButton({ cartId }: { cartId: string }) {
     <div className="w-100">
       <div className="mb-3">
         <label className="form-label fw-bold text-muted">Select Payment Term</label>
-        <select 
-          className="form-select" 
-          value={selectedTerm} 
-          onChange={(e) => setSelectedTerm(e.target.value)}
+        <select
+          className="form-select"
+          value={selectedTerm}
+          onChange={(e) => handleTermChange(e.target.value)}
         >
           {TERMS.map((term) => (
             <option key={term} value={term}>
