@@ -25,5 +25,6 @@ build
 
 .medusa
 .env.production
+.env.production.backup
 .env*
 !.env.example

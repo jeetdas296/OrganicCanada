@@ -197,3 +197,62 @@ export async function searchProducts(query: string, regionId?: string) {
     return { success: false, products: [], error: error.message }
   }
 }
+
+// ✅ NEW: Look up variant by SKU directly from /store/pos/variant-by-sku
+export async function getVariantBySku(sku: string) {
+  try {
+    if (!sku || !sku.trim()) {
+      return { success: false, error: "Empty SKU scanned" }
+    }
+    const cleanSku = sku.trim()
+    console.log(cleanSku)
+    const url = `${BACKEND_URL}/store/pos/variant-by-sku?sku=${encodeURIComponent(
+      cleanSku
+    )}`
+
+    console.log("[POS] QR lookup by SKU:", cleanSku, "URL:", url)
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...getPOSHeaders(),
+        ...getStoreHeaders(),
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return {
+        success: false,
+        error: errorData.error || `Variant not found for SKU: ${cleanSku}`,
+        sku: cleanSku,
+      }
+    }
+
+    const data = await response.json()
+
+    console.log("Searching SKU:", cleanSku)
+    console.log("Backend Response:", data)
+
+    if (!data.success || !data.variant) {
+      return {
+        success: false,
+        error: data.error || `Variant not found for SKU: ${cleanSku}`,
+        sku: cleanSku,
+      }
+    }
+
+    console.log("Variant Found:", data.variant)
+    return {
+      success: true,
+      variant: data.variant,
+      product: data.product || data.variant.product,
+      inventory: data.inventory,
+      price: data.price,
+      sku: cleanSku,
+    }
+  } catch (error: any) {
+    console.error("[POS] getVariantBySku failed:", error)
+    return { success: false, error: error.message, sku }
+  }
+}

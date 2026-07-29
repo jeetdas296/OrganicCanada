@@ -4,6 +4,7 @@ import { useState } from "react"
 import { searchProducts } from "@lib/data/pos"
 import { getVariantPrice } from "@lib/util/price-helper"
 import Image from "next/image"
+import QRScannerModal from "@modules/pos/components/qr-scanner-modal"
 
 interface ProductSearchProps {
   onAddToCart: (item: any) => void
@@ -14,6 +15,7 @@ export default function ProductSearch({ onAddToCart }: ProductSearchProps) {
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
 
   const handleSearch = async () => {
   if (!query.trim()) return
@@ -90,6 +92,16 @@ export default function ProductSearch({ onAddToCart }: ProductSearchProps) {
         >
           {loading ? "..." : "Search"}
         </button>
+        <button
+          onClick={() => setIsScannerOpen(true)}
+          type="button"
+          className="px-5 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold flex items-center gap-2 shadow-sm transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+          </svg>
+          <span>Scan QR</span>
+        </button>
       </div>
 
       {error && (
@@ -148,6 +160,12 @@ export default function ProductSearch({ onAddToCart }: ProductSearchProps) {
           )}
         </div>
       )}
+
+      <QRScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onAddToCart={onAddToCart}
+      />
     </div>
   )
 }
