@@ -276,6 +276,20 @@
           "nullable": false,
           "mappedType": "text"
         },
+        "message_type": {
+          "name": "message_type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "'text'",
+          "enumItems": [
+            "text",
+            "proposal_update"
+          ],
+          "mappedType": "enum"
+        },
         "text": {
           "name": "text",
           "type": "text",
@@ -293,6 +307,15 @@
           "primary": false,
           "nullable": true,
           "mappedType": "decimal"
+        },
+        "proposal_diff": {
+          "name": "proposal_diff",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "mappedType": "json"
         },
         "attachment_url": {
           "name": "attachment_url",

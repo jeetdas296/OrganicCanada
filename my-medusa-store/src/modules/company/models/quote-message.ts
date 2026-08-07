@@ -8,7 +8,9 @@ export const QuoteMessage = model.define("quote_message", {
   }),
   sender_type: model.enum(["admin", "customer"]),
   sender_id: model.text(), // Admin User ID or Customer ID
+  message_type: model.enum(["text", "proposal_update"]).default("text"),
   text: model.text(),
   price_proposal: model.bigNumber().nullable(),
+  proposal_diff: model.json().nullable(),
   attachment_url: model.text().nullable(),
 })

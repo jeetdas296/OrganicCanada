@@ -50,7 +50,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       entity: "cart",
       fields: [
         "id", "email", "currency_code", "region_id", "customer_id", "sales_channel_id", "metadata",
-        "items.*", "shipping_address.*", "billing_address.*"
+        "items.*", "items.variant.*", "items.variant.product.*", "items.product.*", "shipping_address.*", "billing_address.*", "shipping_methods.*",
       ],
       filters: { id: cart_id }
     })
@@ -77,6 +77,24 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       unit_price: item.unit_price,
       product_id: item.product_id,
       variant_id: item.variant_id,
+      thumbnail: item.thumbnail || item.variant?.product?.thumbnail || item.product?.thumbnail,
+      product_title: item.product_title || item.variant?.product?.title || item.product?.title,
+      product_description: item.product_description || item.variant?.product?.description || item.product?.description,
+      product_subtitle: item.product_subtitle || item.variant?.product?.subtitle || item.product?.subtitle,
+      product_type: item.product_type || item.variant?.product?.type?.value || item.product?.type?.value,
+      product_collection: item.product_collection || item.variant?.product?.collection?.title || item.product?.collection?.title,
+      product_handle: item.product_handle || item.variant?.product?.handle || item.product?.handle,
+      variant_sku: item.variant_sku || item.variant?.sku,
+      variant_barcode: item.variant_barcode || item.variant?.barcode,
+      variant_title: item.variant_title || item.variant?.title,
+      metadata: item.metadata,
+    }))
+
+    const draftShippingMethods = (cart.shipping_methods || []).map((sm: any) => ({
+      name: sm.name,
+      amount: sm.amount,
+      shipping_option_id: sm.shipping_option_id,
+      data: sm.data || {}
     }))
 
     // 🟢 3. Merge existing metadata and explicitly save payment_term onto the created order
@@ -88,6 +106,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       region_id: cart.region_id,
       shipping_address: cart.shipping_address,
       billing_address: cart.billing_address,
+      shipping_methods: draftShippingMethods,
       items: draftItems,
       sales_channel_id: cart.sales_channel_id,
       metadata: {
@@ -96,6 +115,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         original_cart_id: cart.id,
         payment_term: selectedPaymentTerm,
         is_b2b: true,
+        quote_status: "pending",
       }
     } as any)
 

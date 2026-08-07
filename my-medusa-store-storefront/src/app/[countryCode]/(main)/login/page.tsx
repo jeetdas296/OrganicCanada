@@ -29,8 +29,13 @@ function checkRateLimit(ip: string): boolean {
   return record.count <= max;
 }
 
-export default async function LoginPage(props: { params: Promise<{ countryCode: string }> }) {
+export default async function LoginPage(props: { 
+  params: Promise<{ countryCode: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const params = await props.params;
+  const searchParams = await props.searchParams;
+  const message = searchParams.message as string | undefined;
 
   // 0. Rate limiting block
   const headersList = await headers();
@@ -69,6 +74,17 @@ export default async function LoginPage(props: { params: Promise<{ countryCode: 
             <p className="text-muted">Sign in to track your orders and save your favorites.</p>
           </div>
         </div>
+
+        {message && (
+          <div className="row justify-content-center mb-4">
+            <div className="col-lg-5 col-md-8 col-sm-10">
+              <div className="alert alert-success shadow-sm d-flex align-items-center" role="alert">
+                <i className="icofont-check-circled fs-4 me-2"></i>
+                <div>{message}</div>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="row justify-content-center">
           <div className="col-lg-5 col-md-8 col-sm-10">

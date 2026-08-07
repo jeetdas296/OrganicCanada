@@ -38,6 +38,12 @@ export default async function Quotes(props: { params: Promise<{ countryCode: str
             </div>
         )
     }
+
+    // Sort quotes by latest first
+    quotes.sort((a: any, b: any) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
     return (
         <div className="w-full min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
             <div className="max-w-5xl mx-auto space-y-8" data-testid="quotes-page-wrapper">
@@ -61,7 +67,7 @@ export default async function Quotes(props: { params: Promise<{ countryCode: str
                     ) : (
                         <div className="flex flex-col gap-y-6">
                             {quotes.map((quote: any) => {
-                                const isConverted = quote.status === "completed" || quote.status === "ordered" || quote.status === "requires_action"
+                                const isConverted = quote.metadata.quote_status === "completed" || quote.status === "ordered" || quote.status === "requires_action"
                                 return (
                                     <div
                                         key={quote.id}
@@ -74,7 +80,7 @@ export default async function Quotes(props: { params: Promise<{ countryCode: str
                                                 </h3>
                                                 <span className={`text-xs font-bold px-3 py-1 rounded-full shadow-sm tracking-wide uppercase ${isConverted ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white" : "bg-gradient-to-r from-gray-800 to-gray-700 text-white"
                                                     }`}>
-                                                    {isConverted ? "Ordered" : (quote.status || "Pending")}
+                                                    {isConverted ? "Ordered" : (quote.metadata.quote_status || "Pending")}
                                                 </span>
                                             </div>
                                             <p className="text-gray-500 text-sm font-medium">

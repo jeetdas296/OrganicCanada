@@ -1,4 +1,6 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { Modules } from "@medusajs/framework/utils"
+import { createOrUpdateOrderPaymentCollectionWorkflow } from "@medusajs/core-flows"
 import { COMPANY_MODULE } from "../../../../../modules/company"
 import { resolveConversationId } from "../../../../../modules/company/utils/resolve-conversation-id"
 
@@ -55,9 +57,12 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
 
   return res.json({
     conversation: conversation || null,
-    order_status: draftOrder.status
+    order_status: draftOrder.status,
+    quote_status: draftOrder.metadata?.quote_status || "pending",
+    order_total: Number(draftOrder.total || 0),
   })
 }
+
 
 export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   const { id } = req.params
@@ -116,7 +121,34 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       id: conversation.id,
       status: "agreement_reached"
     })
-    return res.json({ conversation })
+
+    const orderTotal = Number(
+      typeof draftOrder.total === "object" && draftOrder.total !== null
+        ? (draftOrder.total as any).numeric ?? draftOrder.total
+        : draftOrder.total || 0
+    )
+
+    const orderModule = req.scope.resolve(Modules.ORDER)
+    await orderModule.updateOrders([{
+      id: draftOrder.id,
+      metadata: {
+        ...(draftOrder.metadata || {}),
+        quote_status: "ready_for_payment",
+      }
+    }])
+
+    try {
+      await createOrUpdateOrderPaymentCollectionWorkflow(req.scope).run({
+        input: {
+          order_id: draftOrder.id,
+          amount: orderTotal,
+        }
+      })
+    } catch (e: any) {
+      console.error("Payment collection workflow note:", e.message)
+    }
+
+    return res.json({ conversation, quote_status: "ready_for_payment", order_total: orderTotal })
   }
 
   const message = await companyService.createQuoteMessages({
@@ -125,6 +157,17 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     sender_id: callerId,
     text: text || "Sent a message",
   })
+
+  if (draftOrder.metadata?.quote_status === "pending") {
+    const orderModule = req.scope.resolve(Modules.ORDER)
+    await orderModule.updateOrders([{
+      id: draftOrder.id,
+      metadata: {
+        ...(draftOrder.metadata || {}),
+        quote_status: "negotiating",
+      }
+    }])
+  }
 
   return res.json({ message })
 }

@@ -72,21 +72,11 @@ export default function B2BQuotesPage() {
                         View Draft Order
                       </Button>
                     </a>
-                    <Drawer>
-                      <Drawer.Trigger asChild>
-                        <Button variant="secondary" size="small">
-                          Quote Chat
-                        </Button>
-                      </Drawer.Trigger>
-                      <Drawer.Content className="z-50 max-w-lg right-0 left-auto border-l rounded-none">
-                        <Drawer.Header>
-                          <Drawer.Title>Quote Negotiation</Drawer.Title>
-                        </Drawer.Header>
-                        <Drawer.Body className="p-4 bg-ui-bg-subtle h-full overflow-y-auto">
-                          <QuoteNegotiation draftOrderId={quote.id} isB2bQuote={true} />
-                        </Drawer.Body>
-                      </Drawer.Content>
-                    </Drawer>
+                    <a href={`/app/b2b-quotes/${quote.id}`}>
+                      <Button variant="secondary" size="small">
+                        Quote Chat 💬
+                      </Button>
+                    </a>
                   </div>
                 </Table.Cell>
               </Table.Row>

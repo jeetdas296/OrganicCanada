@@ -15,9 +15,8 @@ const QuoteNegotiationWidget = ({ data: draftOrder }: DetailWidgetProps<AdminDra
 export const config = defineWidgetConfig({
   zone: [
     "order.details.before",
-    // @ts-ignore - draft_order.details.before is the official zone in >= 2.16.0
     "draft_order.details.before",
-  ],
+  ] as any,
 })
 
 export default QuoteNegotiationWidget

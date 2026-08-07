@@ -4,6 +4,7 @@ import { listOrders } from "@lib/data/orders";
 import { retrieveCustomer, signout } from "@lib/data/customer";
 import AddressBook from "components/AddressBook";
 import ProfileDetails from "components/ProfileDetails";
+import ChangePassword from "./components/ChangePassword";
 import { redirect } from "next/navigation";
 
 export default async function ProfilePage(props: { params: Promise<{ countryCode: string }> }) {
@@ -133,6 +134,10 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
 
               {customer && (
                 <AddressBook customer={customer} countryCode={countryCode} />
+              )}
+
+              {customer && (
+                <ChangePassword countryCode={countryCode} />
               )}
             </div>
           </div>

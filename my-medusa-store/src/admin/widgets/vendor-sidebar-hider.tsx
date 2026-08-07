@@ -19,6 +19,7 @@ function useSidebarHider() {
                 const parent = el?.parentElement
                 if (!parent) break
                 el = parent
+                if (!el) break
                 const tag = el.tagName?.toLowerCase()
                 // Most admin sidebars wrap links in a div or li
                 if (tag === "li" || tag === "nav" || (tag === "div" && el.childElementCount === 1)) {

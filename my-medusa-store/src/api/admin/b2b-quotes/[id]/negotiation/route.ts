@@ -1,4 +1,5 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
+import { Modules } from "@medusajs/framework/utils"
 import { COMPANY_MODULE } from "../../../../../modules/company"
 import { resolveConversationId } from "../../../../../modules/company/utils/resolve-conversation-id"
 
@@ -80,12 +81,24 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     attachment_url,
   })
 
-  // If price_proposal is passed, we might need to update the draft order.
-  // The user says "Admin updates Draft Order prices if required" and "These updates should modify the existing Draft Order".
-  // This could be handled by a separate API or a workflow, but we'll include it here.
-  // Actually, updating a draft order's item price might require calling Medusa's standard APIs or workflows from the UI directly.
-  // The prompt says: "Admin updates Draft Order prices if required. These updates should modify the existing Draft Order. Reuse existing Draft Order logic."
-  // So the UI can just make a call to the Medusa API to update the draft order's items, and *then* post a message here.
+  const { data: orders } = await query.graph({
+    entity: "order",
+    filters: { id },
+    fields: ["id", "metadata"],
+  })
+  const currentOrder = orders?.[0]
+  if (currentOrder) {
+    const orderModule = req.scope.resolve(Modules.ORDER)
+    await orderModule.updateOrders([{
+      id: currentOrder.id,
+      metadata: {
+        ...(currentOrder.metadata || {}),
+        quote_status: "negotiating",
+        ...(price_proposal != null ? { counter_price: price_proposal } : {}),
+      }
+    }])
+  }
 
   return res.json({ message })
 }
+

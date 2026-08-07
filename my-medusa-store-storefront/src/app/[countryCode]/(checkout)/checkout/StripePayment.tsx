@@ -5,6 +5,7 @@ import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { unlockStripe, clearStaleCartCookie, submitB2BQuote, sniperCompleteOrder } from "./actions";
+import { payQuoteOffer } from "@lib/data/b2b-quotes";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY as string);
 
@@ -19,7 +20,15 @@ const isQuoteRequired = (cart: any) => {
   return is_b2b && approvalRequiredTerms.includes(payment_term.toLowerCase());
 };
 
-const CheckoutForm = ({ cart }: { cart: any }) => {
+const CheckoutForm = ({
+  cart,
+  b2bQuoteId,
+  draftOrder,
+}: {
+  cart?: any;
+  b2bQuoteId?: string;
+  draftOrder?: any;
+}) => {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
@@ -46,13 +55,28 @@ const CheckoutForm = ({ cart }: { cart: any }) => {
       setErrorMessage(error.message || "Payment declined.");
       setIsProcessing(false);
     } else if (paymentIntent && (paymentIntent.status === "succeeded" || paymentIntent.status === "requires_capture")) {
+      if (b2bQuoteId) {
+        console.log("✅ 4. B2B Quote Payment Authorized! Executing Server-Side Quote Completion...");
+        try {
+          const res = await payQuoteOffer(b2bQuoteId, paymentIntent.id);
+          console.log("🎉 5. B2B Quote Order Converted Successfully:", res);
+          const countryCode = window.location.pathname.split("/")[1] || "us";
+          window.location.href = `/${countryCode}/order/status?redirect_status=succeeded&order_id=${b2bQuoteId}`;
+        } catch (err: any) {
+          console.error("Critical B2B Payment Error:", err);
+          setErrorMessage(err.message || "Failed to finalize B2B quote payment.");
+          setIsProcessing(false);
+        }
+        return;
+      }
+
       console.log("✅ 4. Payment Authorized! Executing Server-Side Sniper & Completion...");
 
       try {
         const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
         
         // Smart detect mixed/digital cart items for sniper mode
-        const hasDigitalItems = cart.items?.some((item: any) => 
+        const hasDigitalItems = cart?.items?.some((item: any) => 
           item.variant?.manage_inventory === false || 
           item.product?.type?.value === "Digital Product"
         );
@@ -104,6 +128,7 @@ const CheckoutForm = ({ cart }: { cart: any }) => {
     </form>
   );
 };
+
 
 const B2BQuoteBlock = ({ cart }: { cart: any }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -185,19 +210,31 @@ export default function StripePayment({
   clientSecret,
   cart,
   customer,
+  b2bQuoteId,
+  draftOrder,
 }: {
   clientSecret: string;
-  cart: any;
-  customer: any;
+  cart?: any;
+  customer?: any;
+  b2bQuoteId?: string;
+  draftOrder?: any;
 }) {
   const [isUnlocking, setIsUnlocking] = useState(false);
 
-  // B2B branch: short-circuit Stripe entirely if customer or cart explicitly requires a quote
-  if (isB2B(customer) || isQuoteRequired(cart)) {
+  // B2B branch: short-circuit Stripe entirely ONLY for new cart checkout when quote is required
+  if (!b2bQuoteId && (isB2B(customer) || isQuoteRequired(cart))) {
     return <B2BQuoteBlock cart={cart} />;
   }
 
   if (!clientSecret) {
+    if (b2bQuoteId) {
+      return (
+        <div className="alert alert-info text-center py-4">
+          <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+          Loading Stripe payment gateway for quote...
+        </div>
+      );
+    }
     return (
       <div className="alert alert-warning mb-0 text-center py-4 border-warning border-opacity-50 shadow-sm">
         <i className="icofont-lock fs-1 d-block mb-2 text-warning"></i>
@@ -226,7 +263,7 @@ export default function StripePayment({
 
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>
-      <CheckoutForm cart={cart} />
+      <CheckoutForm cart={cart} b2bQuoteId={b2bQuoteId} draftOrder={draftOrder} />
     </Elements>
   );
 }
