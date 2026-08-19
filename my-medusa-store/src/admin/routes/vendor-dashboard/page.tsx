@@ -2,8 +2,10 @@ import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { BuildingStorefront, CurrencyDollar, ShoppingCart, Tag } from "@medusajs/icons"
 import { useState, useEffect } from "react"
 import { Container, Heading, Text, Table, Badge } from "@medusajs/ui"
+import { useVendorSidebar } from "../../hooks/useVendorSidebar"
 
 const VendorDashboard = () => {
+  useVendorSidebar()
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [myFarm, setMyFarm] = useState<any>(null)
 
@@ -51,13 +53,13 @@ const VendorDashboard = () => {
     loadDashboard()
   }, [])
 
-  if (loading) {
-    return <Container className="p-8 text-center">Loading Marketplace Data...</Container>
-  }
-
   const targetVendorId = isSuperAdmin
     ? (selectedVendor === "all" ? null : selectedVendor)
     : myFarm?.id
+
+  if (loading) {
+    return <Container className="p-8 text-center">Loading Marketplace Data...</Container>
+  }
 
   const vendorRateMap: Record<string, number> = {}
   vendors.forEach((v) => {
@@ -153,53 +155,55 @@ const VendorDashboard = () => {
         </div>
       </div>
 
-      <Heading level="h2" className="mb-4 text-xl">Recent Orders</Heading>
+      <div className="mb-12">
+        <Heading level="h2" className="mb-4 text-xl">Recent Orders</Heading>
+        {displayOrders.length === 0 ? (
+          <div className="p-8 border border-dashed rounded-lg text-center text-ui-fg-subtle">
+            <Text>No orders received yet. Sales will appear here.</Text>
+          </div>
+        ) : (
+          <Table>
+            <Table.Header>
+              <Table.Row>
+                <Table.HeaderCell>Order ID</Table.HeaderCell>
+                <Table.HeaderCell>Date</Table.HeaderCell>
+                <Table.HeaderCell>Customer</Table.HeaderCell>
+                <Table.HeaderCell>Payment Status</Table.HeaderCell>
+                <Table.HeaderCell className="text-right">Order Subtotal</Table.HeaderCell>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {displayOrders.map((order) => {
+                let orderVendorTotal = 0
+                order.items?.forEach((item: any) => {
+                  if (targetProductIds.includes(item.product_id)) {
+                    orderVendorTotal += item.unit_price * item.quantity
+                  }
+                })
 
-      {displayOrders.length === 0 ? (
-        <div className="p-8 border border-dashed rounded-lg text-center text-ui-fg-subtle">
-          <Text>No orders received yet. Sales will appear here.</Text>
-        </div>
-      ) : (
-        <Table>
-          <Table.Header>
-            <Table.Row>
-              <Table.HeaderCell>Order ID</Table.HeaderCell>
-              <Table.HeaderCell>Date</Table.HeaderCell>
-              <Table.HeaderCell>Customer</Table.HeaderCell>
-              <Table.HeaderCell>Payment Status</Table.HeaderCell>
-              <Table.HeaderCell className="text-right">Order Subtotal</Table.HeaderCell>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {displayOrders.map((order) => {
-              let orderVendorTotal = 0
-              order.items?.forEach((item: any) => {
-                if (targetProductIds.includes(item.product_id)) {
-                  orderVendorTotal += item.unit_price * item.quantity
-                }
-              })
+                return (
+                  <Table.Row key={order.id}>
+                    <Table.Cell className="font-medium text-blue-600">#{order.display_id}</Table.Cell>
+                    <Table.Cell className="text-ui-fg-muted">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </Table.Cell>
+                    <Table.Cell>{order.email}</Table.Cell>
+                    <Table.Cell>
+                      <Badge color={order.payment_status === "captured" ? "green" : "orange"}>
+                        {order.payment_status}
+                      </Badge>
+                    </Table.Cell>
+                    <Table.Cell className="text-right font-medium">
+                      ${orderVendorTotal.toFixed(2)}
+                    </Table.Cell>
+                  </Table.Row>
+                )
+              })}
+            </Table.Body>
+          </Table>
+        )}
+      </div>
 
-              return (
-                <Table.Row key={order.id}>
-                  <Table.Cell className="font-medium text-blue-600">#{order.display_id}</Table.Cell>
-                  <Table.Cell className="text-ui-fg-muted">
-                    {new Date(order.created_at).toLocaleDateString()}
-                  </Table.Cell>
-                  <Table.Cell>{order.email}</Table.Cell>
-                  <Table.Cell>
-                    <Badge color={order.payment_status === "captured" ? "green" : "orange"}>
-                      {order.payment_status}
-                    </Badge>
-                  </Table.Cell>
-                  <Table.Cell className="text-right font-medium">
-                    ${orderVendorTotal.toFixed(2)}
-                  </Table.Cell>
-                </Table.Row>
-              )
-            })}
-          </Table.Body>
-        </Table>
-      )}
     </Container>
   )
 }

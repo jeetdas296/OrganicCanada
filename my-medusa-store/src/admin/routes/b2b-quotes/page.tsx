@@ -1,25 +1,41 @@
 import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { DocumentText } from "@medusajs/icons"
-import { Container, Heading, Table, Badge, Button, toast, Drawer } from "@medusajs/ui"
+import { Container, Heading, Table, Badge, Button, toast } from "@medusajs/ui"
 import { useEffect, useState } from "react"
-import { QuoteNegotiation } from "../../components/quote-negotiation"
+import { Link } from "react-router-dom"
+import { useVendorSidebar } from "../../hooks/useVendorSidebar"
 
 export default function B2BQuotesPage() {
+  useVendorSidebar()
   const [quotes, setQuotes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(true)
 
   useEffect(() => {
     const fetchQuotes = async () => {
       try {
-        const res = await fetch("/admin/draft-orders")
-        const data = await res.json()
+        const checkRes = await fetch("/admin/vendor-check")
+        const checkData = await checkRes.json()
+        const isAdmin = !checkData.is_vendor
+        setIsSuperAdmin(isAdmin)
 
-        const b2bQuotes = (data.draft_orders || []).filter(
-          (order: any) => order.metadata?.is_b2b_quote === true
-        )
-        setQuotes(b2bQuotes.length > 0 ? b2bQuotes : data.draft_orders || [])
+        const res = await fetch("/admin/b2b-quotes")
+        const data = await res.json()
+        
+        console.log("[B2B DEBUG] API response:", data)
+        console.log("[B2B DEBUG] quotes:", data.quotes)
+        console.log("[B2B DEBUG] b2b_quotes:", data.b2b_quotes)
+        console.log("[B2B DEBUG] draft_orders:", data.draft_orders)
+
+        if (data.quotes) {
+          setQuotes(data.quotes)
+        } else if (data.b2b_quotes) {
+          setQuotes(data.b2b_quotes)
+        } else {
+          toast.error("Failed to load B2B quotes.")
+        }
       } catch (err) {
-        toast.error("Failed to load B2B quotes.")
+        toast.error("Failed to fetch B2B quotes.")
       } finally {
         setLoading(false)
       }
@@ -44,7 +60,7 @@ export default function B2BQuotesPage() {
             <Table.Row>
               <Table.HeaderCell>Draft ID</Table.HeaderCell>
               <Table.HeaderCell>Customer Email</Table.HeaderCell>
-              <Table.HeaderCell>Amount</Table.HeaderCell>
+              <Table.HeaderCell>{isSuperAdmin ? "Amount" : "Your Subtotal"}</Table.HeaderCell>
               <Table.HeaderCell>Status</Table.HeaderCell>
               <Table.HeaderCell className="text-right">Action</Table.HeaderCell>
             </Table.Row>
@@ -53,30 +69,34 @@ export default function B2BQuotesPage() {
             {quotes.map((quote) => (
               <Table.Row key={quote.id}>
                 <Table.Cell className="font-medium">#{quote.display_id}</Table.Cell>
-
-                {/* 🟢 FIX 1: Look directly at quote.email instead of quote.cart.email */}
                 <Table.Cell className="text-ui-fg-muted">{quote.email || "Unknown"}</Table.Cell>
 
                 <Table.Cell className="font-medium">
-                  {/* 🟢 FIX 2: Look directly at quote.total instead of quote.cart.total */}
-                  ${((quote.total || 0)).toFixed(2)}
+                  {isSuperAdmin ? (
+                    <span className="text-ui-fg-base">${((quote.total || 0)).toFixed(2)}</span>
+                  ) : (
+                    <span className="text-emerald-700">${((quote.total || 0)).toFixed(2)}</span>
+                  )}
                 </Table.Cell>
 
                 <Table.Cell>
                   <Badge color="orange">Pending Review</Badge>
                 </Table.Cell>
+
                 <Table.Cell className="text-right">
                   <div className="flex items-center justify-end gap-x-2">
-                    <a href={`/app/draft-orders/${quote.id}`}>
-                      <Button variant="transparent" size="small">
-                        View Draft Order
-                      </Button>
-                    </a>
-                    <a href={`/app/b2b-quotes/${quote.id}`}>
+                    {isSuperAdmin && (
+                      <Link to={`/draft-orders/${quote.id}`}>
+                        <Button variant="transparent" size="small">
+                          View Draft Order
+                        </Button>
+                      </Link>
+                    )}
+                    <Link to={quote.id}>
                       <Button variant="secondary" size="small">
-                        Quote Chat 💬
+                        {isSuperAdmin ? "Quote Chat 💬" : "View Details"}
                       </Button>
-                    </a>
+                    </Link>
                   </div>
                 </Table.Cell>
               </Table.Row>

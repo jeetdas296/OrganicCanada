@@ -2,6 +2,7 @@ import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { BuildingStorefront } from "@medusajs/icons"
 import { Container, Heading, Table, Button, Badge, toast, Input } from "@medusajs/ui"
 import { useEffect, useState } from "react"
+import { useVendorSidebar } from "../../hooks/useVendorSidebar"
 
 type PendingVendor = {
   id: string
@@ -11,6 +12,7 @@ type PendingVendor = {
 }
 
 export default function VendorApprovalsPage() {
+  useVendorSidebar()
   const [vendors, setVendors] = useState<PendingVendor[]>([])
   const [loading, setLoading] = useState(true)
   const [rates, setRates] = useState<Record<string, string>>({})

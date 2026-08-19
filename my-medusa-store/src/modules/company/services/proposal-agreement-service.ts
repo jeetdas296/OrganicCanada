@@ -77,7 +77,7 @@ export class ProposalAgreementService {
     query: string,
     currencyCode: string = "USD",
     scope: any,
-    options?: { quoteId?: string; customerId?: string }
+    options?: { quoteId?: string; customerId?: string; vendorId?: string }
   ): Promise<{
     variants: Array<{
       variant_id: string
@@ -210,6 +210,7 @@ export class ProposalAgreementService {
           "product.title",
           "product.thumbnail",
           "product.images.*",
+          "product.vendor.*",
         ],
         pagination: {
           take: 500,
@@ -217,6 +218,9 @@ export class ProposalAgreementService {
       })
 
       const matching = (variants || []).filter((v: any) => {
+        if (options?.vendorId && v.product?.vendor?.id !== options.vendorId) {
+          return false
+        }
         if (!cleanQ) return true
         const pTitle = (v.product?.title || "").toLowerCase()
         const vTitle = (v.title || "").toLowerCase()
@@ -389,12 +393,20 @@ export class ProposalAgreementService {
       input: { order_id: orderId },
     })
 
-    const diffEntries: string[] = []
-    const structuredDiff: any = {
-      old_total: oldTotal,
-      new_total: oldTotal,
-      changed_items: [] as any[],
-      note_changed: null as any,
+    // Initialize Vendor Scopes
+    const vendorScopes = new Map<string | null, { diffEntries: string[], structuredDiff: Record<string, any> }>()
+    const getScope = (vId: string | null) => {
+      if (!vendorScopes.has(vId)) {
+        vendorScopes.set(vId, {
+          diffEntries: [],
+          structuredDiff: { vendor_id: vId, old_total: oldTotal, new_total: oldTotal, changed_items: [] }
+        })
+      }
+      return vendorScopes.get(vId)!
+    }
+    const { data: products } = await query.graph({ entity: "product", fields: ["id", "vendor.*"] })
+    const getVendorId = (productId: string | undefined) => {
+      return products.find((p: any) => p.id === productId)?.vendor?.id || "admin"
     }
 
     // 3. Execute requested item updates
@@ -415,6 +427,10 @@ export class ProposalAgreementService {
         })
 
         if (before) {
+          const lineItem = order.items?.find((i: any) => i.id === itemUpdate.id)
+          const vId = getVendorId(lineItem?.product_id)
+          const vendorScope = getScope(vId)
+
           const qtyChange = itemUpdate.quantity !== undefined && itemUpdate.quantity !== before.quantity
             ? `Qty: ${before.quantity} → ${itemUpdate.quantity}`
             : ""
@@ -423,8 +439,8 @@ export class ProposalAgreementService {
             : ""
           const desc = [qtyChange, priceChange].filter(Boolean).join(" | ")
           if (desc) {
-            diffEntries.push(`• ${before.title}: ${desc}`)
-            structuredDiff.changed_items.push({
+            vendorScope.diffEntries.push(`• ${before.title}: ${desc}`)
+            vendorScope.structuredDiff.changed_items.push({
               item_id: itemUpdate.id,
               title: before.title,
               old_quantity: before.quantity,
@@ -474,8 +490,11 @@ export class ProposalAgreementService {
             ],
           },
         })
-        diffEntries.push(`• Added Item: ${addItem.title || `Variant (${addItem.variant_id})`} x${addItem.quantity}`)
-        structuredDiff.changed_items.push({
+        const vId = getVendorId(variant?.product?.id)
+        const vendorScope = getScope(vId)
+
+        vendorScope.diffEntries.push(`• Added Item: ${addItem.title || `Variant (${addItem.variant_id})`} x${addItem.quantity}`)
+        vendorScope.structuredDiff.changed_items.push({
           action: "added",
           variant_id: addItem.variant_id,
           quantity: addItem.quantity,
@@ -500,8 +519,12 @@ export class ProposalAgreementService {
           },
         })
         if (before) {
-          diffEntries.push(`• Removed Item: ${before.title}`)
-          structuredDiff.changed_items.push({
+          const lineItem = order.items?.find((i: any) => i.id === removeItem.id)
+          const vId = getVendorId(lineItem?.product_id)
+          const vendorScope = getScope(vId)
+
+          vendorScope.diffEntries.push(`• Removed Item: ${before.title}`)
+          vendorScope.structuredDiff.changed_items.push({
             action: "removed",
             item_id: removeItem.id,
             title: before.title,
@@ -513,6 +536,8 @@ export class ProposalAgreementService {
     }
 
     // 4.7 Execute shipping option / price updates
+    const globalScope = getScope(null)
+
     if (changes.shipping_option_id) {
       await addDraftOrderShippingMethodsWorkflow(scope).run({
         input: {
@@ -521,8 +546,8 @@ export class ProposalAgreementService {
           custom_amount: changes.shipping_price,
         },
       })
-      diffEntries.push(`• Shipping Method Updated`)
-      structuredDiff.shipping_changed = true
+      globalScope.diffEntries.push(`• Shipping Method Updated`)
+      globalScope.structuredDiff.shipping_changed = true
     }
 
     // 4.8 Execute promotion code / discounts
@@ -533,8 +558,8 @@ export class ProposalAgreementService {
           promo_codes: [changes.promotion_code],
         },
       })
-      diffEntries.push(`• Applied Promo Code: ${changes.promotion_code}`)
-      structuredDiff.promotion_applied = changes.promotion_code
+      globalScope.diffEntries.push(`• Applied Promo Code: ${changes.promotion_code}`)
+      globalScope.structuredDiff.promotion_applied = changes.promotion_code
     }
 
     // 5. Execute Note / Terms and Discount Metadata update, and always reset admin_offer_approved
@@ -543,6 +568,36 @@ export class ProposalAgreementService {
     const metadataUpdate: any = {
       ...(order.metadata || {}),
       admin_offer_approved: false,
+    }
+
+    // Initialize vendor_statuses and vendor_last_sender objects if not present
+    metadataUpdate.vendor_statuses = metadataUpdate.vendor_statuses || {}
+    metadataUpdate.vendor_last_sender = metadataUpdate.vendor_last_sender || {}
+
+    // Get all vendors currently in the quote
+    const quoteVendors = new Set<string>()
+    for (const item of order.items || []) {
+      const vId = getVendorId(item.product_id)
+      if (vId) quoteVendors.add(vId)
+    }
+
+    // For any vendor that had items added/removed/updated in this request, reset them to NEGOTIATING and update sender
+    for (const vId of vendorScopes.keys()) {
+      if (vId) {
+        metadataUpdate.vendor_statuses[vId] = "NEGOTIATING"
+        metadataUpdate.vendor_last_sender[vId] = senderType
+      }
+    }
+
+    // Ensure all vendors in the quote have an initialized status and sender
+    for (const vId of quoteVendors) {
+      if (!metadataUpdate.vendor_statuses[vId]) {
+        metadataUpdate.vendor_statuses[vId] = "NEGOTIATING"
+      }
+      if (!metadataUpdate.vendor_last_sender[vId]) {
+        // Fallback: If no sender is set, assume the customer originated the quote request
+        metadataUpdate.vendor_last_sender[vId] = "customer"
+      }
     }
 
     let hasNoteChange = false
@@ -566,16 +621,16 @@ export class ProposalAgreementService {
     })
 
     if (hasNoteChange) {
-      diffEntries.push(`• Note Updated`)
-      structuredDiff.note_changed = { old_note: oldNote, new_note: changes.note }
+      globalScope.diffEntries.push(`• Note Updated`)
+      globalScope.structuredDiff.note_changed = { old_note: oldNote, new_note: changes.note }
     }
     if (changes.discount_percentage !== undefined) {
-      diffEntries.push(`• Discount Percentage: ${changes.discount_percentage}%`)
-      structuredDiff.discount_percentage = changes.discount_percentage
+      globalScope.diffEntries.push(`• Discount Percentage: ${changes.discount_percentage}%`)
+      globalScope.structuredDiff.discount_percentage = changes.discount_percentage
     }
     if (changes.fixed_discount !== undefined) {
-      diffEntries.push(`• Fixed Discount: ${this.formatMoney(changes.fixed_discount, order.currency_code)}`)
-      structuredDiff.fixed_discount = changes.fixed_discount
+      globalScope.diffEntries.push(`• Fixed Discount: ${this.formatMoney(changes.fixed_discount, order.currency_code)}`)
+      globalScope.structuredDiff.fixed_discount = changes.fixed_discount
     }
 
     // 6. Confirm the batch edit session
@@ -609,16 +664,14 @@ export class ProposalAgreementService {
     })
     const updatedOrder = updatedOrders?.[0] || order
     const newTotal = this.parseNumber(updatedOrder.total)
-    structuredDiff.new_total = newTotal
 
-    const totalChangeText = `Grand Total: ${this.formatMoney(oldTotal, updatedOrder.currency_code)} → ${this.formatMoney(newTotal, updatedOrder.currency_code)}`
+    // Update globalScope totals with final calculated totals
+    globalScope.structuredDiff.new_total = newTotal
+    for (const scopeData of vendorScopes.values()) {
+      scopeData.structuredDiff.new_total = newTotal
+    }
+
     const senderLabel = senderType === "admin" ? "Admin" : "Customer"
-    const textSummary = [
-      "Proposal Updated",
-      `${senderLabel} updated Proposal Agreement`,
-      ...diffEntries,
-      totalChangeText,
-    ].join("\n")
 
     // 8. Generate Proposal Updated version history message in existing conversation
     const targetQuoteId = await resolveConversationId(orderId, query)
@@ -636,19 +689,45 @@ export class ProposalAgreementService {
       })
     }
 
-    const message = await companyService.createQuoteMessages({
-      conversation_id: conversation.id,
-      sender_type: senderType,
-      sender_id: actorId,
-      message_type: "proposal_update",
-      text: textSummary,
-      proposal_diff: structuredDiff,
-    })
+    const messages: any[] = []
+
+    for (const [vId, scopeData] of vendorScopes.entries()) {
+      if (scopeData.diffEntries.length === 0 && vId !== null) continue
+      if (scopeData.diffEntries.length === 0 && vId === null && vendorScopes.size > 1) continue
+
+      let textSummary = `Proposal Updated\n${senderLabel} updated Proposal Agreement`
+      if (scopeData.diffEntries.length > 0) textSummary += `\n` + scopeData.diffEntries.join("\n")
+      if (vId === null) textSummary += `\nGrand Total: ${this.formatMoney(oldTotal, updatedOrder.currency_code)} → ${this.formatMoney(newTotal, updatedOrder.currency_code)}`
+
+      const message = await companyService.createQuoteMessages({
+        conversation_id: conversation.id,
+        sender_type: senderType,
+        sender_id: actorId,
+        message_type: "proposal_update",
+        text: textSummary,
+        proposal_diff: scopeData.structuredDiff as Record<string, unknown>,
+      })
+      messages.push(message)
+    }
+
+    let fallbackMessage = messages[0]
+    if (messages.length === 0) {
+      fallbackMessage = await companyService.createQuoteMessages({
+        conversation_id: conversation.id,
+        sender_type: senderType,
+        sender_id: actorId,
+        message_type: "proposal_update",
+        text: `Proposal Updated\n${senderLabel} updated Proposal Agreement`,
+        proposal_diff: { vendor_id: null } as Record<string, unknown>,
+      })
+      messages.push(fallbackMessage)
+    }
 
     return {
       order: updatedOrder,
-      message,
-      structured_diff: structuredDiff,
+      message: fallbackMessage,
+      messages: messages,
+      structured_diff: fallbackMessage.proposal_diff,
     }
   }
 

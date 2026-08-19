@@ -2,6 +2,7 @@ import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { CurrencyDollar } from "@medusajs/icons"
 import { Container, Heading, Table, Button, Input, toast, Text } from "@medusajs/ui"
 import { useEffect, useState } from "react"
+import { useVendorSidebar } from "../../hooks/useVendorSidebar"
 
 type Vendor = {
   id: string
@@ -11,6 +12,7 @@ type Vendor = {
 }
 
 export default function VendorCommissionPage() {
+  useVendorSidebar()
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [rates, setRates] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<Record<string, boolean>>({})

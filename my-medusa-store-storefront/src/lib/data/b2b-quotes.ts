@@ -27,8 +27,13 @@ export async function getQuoteNegotiation(id: string) {
   return await res.json()
 }
 
-export async function postQuoteNegotiationMessage(id: string, text: string) {
+export async function postQuoteNegotiationMessage(id: string, text: string, vendorId?: string) {
   const authHeaders = await getAuthHeaders()
+
+  const payload: any = { text }
+  if (vendorId) {
+    payload.vendor_id = vendorId
+  }
 
   const res = await fetch(`${backendUrl}/store/b2b-quotes/${id}/negotiation`, {
     method: "POST",
@@ -37,7 +42,7 @@ export async function postQuoteNegotiationMessage(id: string, text: string) {
       "x-publishable-api-key": pubKey,
       ...authHeaders,
     },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(payload),
     cache: "no-store",
   })
 
@@ -60,13 +65,65 @@ export async function acceptQuoteOffer(id: string) {
       "x-publishable-api-key": pubKey,
       ...authHeaders,
     },
-    body: JSON.stringify({ action: "accept" }),
+    body: JSON.stringify({ action: "final_accept" }),
     cache: "no-store",
   })
 
   if (!res.ok) {
-    const error: any = new Error("Failed to accept offer")
+    const error: any = new Error("Failed to finalize offer")
     error.status = res.status
+    const errJson = await res.json().catch(() => ({}))
+    if (errJson.message) error.message = errJson.message
+    throw error
+  }
+
+  return await res.json()
+}
+
+export async function acceptVendorProposal(id: string, vendorId: string) {
+  const authHeaders = await getAuthHeaders()
+
+  const res = await fetch(`${backendUrl}/store/b2b-quotes/${id}/negotiation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-publishable-api-key": pubKey,
+      ...authHeaders,
+    },
+    body: JSON.stringify({ action: "accept", vendor_id: vendorId }),
+    cache: "no-store",
+  })
+
+  if (!res.ok) {
+    const error: any = new Error("Failed to accept vendor proposal")
+    error.status = res.status
+    const errJson = await res.json().catch(() => ({}))
+    if (errJson.message) error.message = errJson.message
+    throw error
+  }
+
+  return await res.json()
+}
+
+export async function rejectVendorProposal(id: string, vendorId: string) {
+  const authHeaders = await getAuthHeaders()
+
+  const res = await fetch(`${backendUrl}/store/b2b-quotes/${id}/negotiation`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-publishable-api-key": pubKey,
+      ...authHeaders,
+    },
+    body: JSON.stringify({ action: "reject", vendor_id: vendorId }),
+    cache: "no-store",
+  })
+
+  if (!res.ok) {
+    const error: any = new Error("Failed to reject vendor proposal")
+    error.status = res.status
+    const errJson = await res.json().catch(() => ({}))
+    if (errJson.message) error.message = errJson.message
     throw error
   }
 

@@ -3,6 +3,8 @@ import {
   getQuoteNegotiation,
   postQuoteNegotiationMessage,
   acceptQuoteOffer,
+  acceptVendorProposal,
+  rejectVendorProposal,
   initiateQuotePaymentSession,
   getQuoteProposal,
   updateQuoteProposal,
@@ -27,6 +29,9 @@ type QuoteNegotiationProps = {
 
 export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
   const [conversation, setConversation] = useState<any>(null)
+  const [vendorTabs, setVendorTabs] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<string>("main")
+
   const [proposal, setProposal] = useState<any>(null)
   const [isLocked, setIsLocked] = useState<boolean>(false)
   const [orderStatus, setOrderStatus] = useState<string | null>(null)
@@ -100,6 +105,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
   const [noteDirty, setNoteDirty] = useState(false)
   const [savingProposal, setSavingProposal] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [isReopened, setIsReopened] = useState(false)
 
   const noteDirtyRef = useRef(false)
   noteDirtyRef.current = noteDirty
@@ -113,6 +119,9 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
 
       if (convRes) {
         setConversation(convRes.conversation)
+        if (convRes.vendor_tabs) {
+          setVendorTabs(convRes.vendor_tabs)
+        }
         setOrderStatus(convRes.order_status)
         setQuoteStatus(convRes.quote_status || "pending")
         setOrderTotal(convRes.order_total ?? convRes.approved_price ?? null)
@@ -190,7 +199,8 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
     if (!newMessage.trim()) return
 
     try {
-      const res = await postQuoteNegotiationMessage(id, newMessage)
+      const vendorId = activeTab === "main" ? undefined : activeTab
+      const res = await postQuoteNegotiationMessage(id, newMessage, vendorId)
 
       setConversation((prev: any) => {
         if (!prev) return { id: "new", status: "open", messages: [res.message] }
@@ -259,6 +269,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
         setPromotionCode("")
         setNoteDirty(false)
         noteDirtyRef.current = false
+        setIsReopened(false)
         setSaveSuccess(true)
         setTimeout(() => setSaveSuccess(false), 4000)
 
@@ -267,7 +278,15 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
           setProposal(res.order)
           setProposalNote(res.order?.metadata?.proposal_note || "")
         }
-        if (res.message) {
+        if (res.messages && res.messages.length > 0) {
+          setConversation((prev: any) => {
+            if (!prev) return { id: "new", status: "open", messages: [...res.messages] }
+            return {
+              ...prev,
+              messages: [...(prev.messages || []), ...res.messages],
+            }
+          })
+        } else if (res.message) {
           setConversation((prev: any) => {
             if (!prev) return { id: "new", status: "open", messages: [res.message] }
             return {
@@ -293,9 +312,46 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
     setNoteDirty(false)
     noteDirtyRef.current = false
     setProposalNote(proposal?.metadata?.proposal_note || "")
+    setIsReopened(false)
   }
 
-  const handleAcceptOffer = async () => {
+  const [processingAction, setProcessingAction] = useState(false)
+
+  const handleAcceptVendor = async (vendorId: string) => {
+    if (processingAction) return
+    setProcessingAction(true)
+    try {
+      const res = await acceptVendorProposal(id, vendorId)
+      await fetchNegotiationAndProposal()
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Failed to accept vendor proposal")
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const handleRejectVendor = async (vendorId: string) => {
+    if (processingAction) return
+
+    const confirmReject = window.confirm("Are you sure you want to reject this proposal? You will not be able to send messages for this vendor anymore.")
+    if (!confirmReject) return
+
+    setProcessingAction(true)
+    try {
+      const res = await rejectVendorProposal(id, vendorId)
+      await fetchNegotiationAndProposal()
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Failed to reject vendor proposal")
+    } finally {
+      setProcessingAction(false)
+    }
+  }
+
+  const handleFinalAcceptQuote = async () => {
+    if (processingAction) return
+    setProcessingAction(true)
     try {
       const res = await acceptQuoteOffer(id)
 
@@ -305,11 +361,25 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
       if (res.order_total || res.approved_price) {
         setOrderTotal(res.order_total || res.approved_price)
       }
-    } catch (err) {
+      await fetchNegotiationAndProposal()
+    } catch (err: any) {
       console.error(err)
-      alert("Failed to accept offer")
+      alert(err.message || "Failed to finalize offer")
+    } finally {
+      setProcessingAction(false)
     }
   }
+
+  const vendorStatuses = proposal?.metadata?.vendor_statuses || {}
+  const vendorLastSender = proposal?.metadata?.vendor_last_sender || {}
+  
+  const hasAdminProducts = proposal?.items?.some((item: any) => !item.vendor?.id)
+  const extendedVendorTabs = hasAdminProducts ? [{ id: "admin", name: "Main Admin" }, ...vendorTabs] : vendorTabs
+
+  const allResolved = extendedVendorTabs.length > 0 && extendedVendorTabs.every(tab => {
+    const st = vendorStatuses[tab.id]
+    return st === "ACCEPTED" || st === "REJECTED"
+  })
 
   const handleItemQtyChange = (itemId: string, quantity: number) => {
     setItemEdits((prev) => ({
@@ -403,6 +473,12 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
     (item: any) => !removedItemIds.includes(item.id)
   )
 
+  const displayedItems = activeItems.filter((item: any) => {
+    if (activeTab === "main") return true
+    if (activeTab === "admin") return !item.vendor?.id
+    return item.vendor?.id === activeTab
+  })
+
   const itemsSubtotal =
     activeItems.reduce((acc: number, item: any) => {
       const currentQty = itemEdits[item.id]?.quantity ?? item.quantity
@@ -484,6 +560,32 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                 <p className="text-xs text-gray-400">
                   All discussion and proposal revisions are recorded permanently.
                 </p>
+                {/* Vendor Tabs */}
+                {extendedVendorTabs.length > 0 && (
+                  <div className="flex gap-x-2 mt-4 overflow-x-auto pb-2 custom-scrollbar">
+                    <button
+                      onClick={() => setActiveTab("main")}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTab === "main"
+                          ? "bg-gray-900 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                    >
+                      Wholesale Team (Main)
+                    </button>
+                    {extendedVendorTabs.map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${activeTab === tab.id
+                            ? "bg-orange-500 text-white"
+                            : "bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200"
+                          }`}
+                      >
+                        {tab.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto flex flex-col gap-y-4 pr-1 custom-scrollbar">
@@ -500,81 +602,123 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                     </p>
                   </div>
                 ) : (
-                  conversation.messages.map((msg: any) => {
-                    const isCustomer = msg.sender_type === "customer"
-                    const isProposalUpdate = msg.message_type === "proposal_update"
+                  conversation.messages
+                    .filter((msg: any) => {
+                      const vId = msg.metadata?.vendor_id || msg.metadata?.proposal_diff?.vendor_id
+                      if (activeTab === "main") {
+                        // Main tab shows messages without a vendor_id, AND proposal updates
+                        return !vId || msg.message_type === "proposal_update"
+                      }
+                      // Vendor tab shows messages specific to that vendor
+                      return vId === activeTab
+                    })
+                    .map((msg: any) => {
+                      const isCustomer = msg.sender_type === "customer"
+                      const isProposalUpdate = msg.message_type === "proposal_update"
 
-                    if (isProposalUpdate) {
+                      if (isProposalUpdate) {
+                        return (
+                          <div
+                            key={msg.id}
+                            className="flex flex-col w-full rounded-2xl p-4 bg-gray-50 border border-gray-200 my-1 shadow-sm"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                                📄 Proposal Updated ({isCustomer ? "You" : "Wholesale Team"})
+                              </span>
+                              <span className="text-xs text-gray-400 font-mono">
+                                {msg.created_at
+                                  ? new Date(msg.created_at).toLocaleTimeString()
+                                  : ""}
+                              </span>
+                            </div>
+                            <p className="text-xs font-mono whitespace-pre-wrap text-gray-700 leading-relaxed">
+                              {msg.text}
+                            </p>
+                          </div>
+                        )
+                      }
+
                       return (
                         <div
                           key={msg.id}
-                          className="flex flex-col w-full rounded-2xl p-4 bg-gray-50 border border-gray-200 my-1 shadow-sm"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                              📄 Proposal Updated ({isCustomer ? "You" : "Wholesale Team"})
-                            </span>
-                            <span className="text-xs text-gray-400 font-mono">
-                              {msg.created_at
-                                ? new Date(msg.created_at).toLocaleTimeString()
-                                : ""}
-                            </span>
-                          </div>
-                          <p className="text-xs font-mono whitespace-pre-wrap text-gray-700 leading-relaxed">
-                            {msg.text}
-                          </p>
-                        </div>
-                      )
-                    }
-
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col max-w-[85%] rounded-2xl p-4 shadow-sm ${isCustomer
+                          className={`flex flex-col max-w-[85%] rounded-2xl p-4 shadow-sm ${isCustomer
                             ? "bg-gradient-to-br from-gray-900 to-black text-white self-end rounded-tr-sm"
                             : "bg-white border border-gray-100 self-start rounded-tl-sm text-gray-800"
-                          }`}
-                      >
-                        <span
-                          className={`text-xs font-bold uppercase tracking-wider mb-1 ${isCustomer ? "text-gray-400" : "text-gray-400"
                             }`}
                         >
-                          {isCustomer ? "You" : "Wholesale Team"}
-                        </span>
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                          {msg.text}
-                        </p>
-                        {msg.price_proposal && (
-                          <div
-                            className={`mt-3 p-3 rounded-lg ${isCustomer
-                                ? "bg-white/10"
-                                : "bg-gray-50 border border-gray-100"
+                          <span
+                            className={`text-xs font-bold uppercase tracking-wider mb-1 ${isCustomer ? "text-gray-400" : "text-gray-400"
                               }`}
                           >
-                            <p
-                              className={`text-xs font-bold uppercase tracking-wider ${isCustomer ? "text-gray-300" : "text-gray-500"
-                                } mb-1`}
-                            >
-                              Proposed Offer
-                            </p>
-                            <p
-                              className={`text-xl font-black ${isCustomer ? "text-white" : "text-gray-900"
+                            {isCustomer ? "You" : "Wholesale Team"}
+                          </span>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {msg.text}
+                          </p>
+                          {msg.price_proposal && (
+                            <div
+                              className={`mt-3 p-3 rounded-lg ${isCustomer
+                                ? "bg-white/10"
+                                : "bg-gray-50 border border-gray-100"
                                 }`}
                             >
-                              {formatMoney(Number(msg.price_proposal), currencyCode)}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
+                              <p
+                                className={`text-xs font-bold uppercase tracking-wider ${isCustomer ? "text-gray-300" : "text-gray-500"
+                                  } mb-1`}
+                              >
+                                Proposed Offer
+                              </p>
+                              <p
+                                className={`text-xl font-black ${isCustomer ? "text-white" : "text-gray-900"
+                                  }`}
+                              >
+                                {formatMoney(Number(msg.price_proposal), currencyCode)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })
                 )}
               </div>
+
+              {/* Vendor Actions */}
+              {activeTab !== "main" && !isClosed && (
+                <div className="flex items-center justify-between pt-3 pb-1 border-t border-gray-100">
+                  <div className="text-sm font-semibold text-gray-700">
+                    Vendor Status: <span className="font-bold text-gray-900">{vendorStatuses[activeTab] || "NEGOTIATING"}</span>
+                  </div>
+                  <div className="flex gap-x-2">
+                    {((activeTab === "admin" && vendorLastSender[activeTab] === "admin") || 
+                      (activeTab !== "admin" && vendorLastSender[activeTab] && vendorLastSender[activeTab] !== "customer")) && (
+                      <button
+                        onClick={() => handleAcceptVendor(activeTab)}
+                        disabled={processingAction || vendorStatuses[activeTab] === "ACCEPTED"}
+                        className="bg-green-600 text-white font-bold px-4 py-2 rounded-xl text-xs hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
+                      >
+                        {vendorStatuses[activeTab] === "ACCEPTED" ? "✓ Accepted" : "Accept Vendor"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRejectVendor(activeTab)}
+                      disabled={processingAction || vendorStatuses[activeTab] === "REJECTED"}
+                      className="bg-red-50 text-red-700 border border-red-200 font-bold px-4 py-2 rounded-xl text-xs hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      {vendorStatuses[activeTab] === "REJECTED" ? "Rejected" : "Reject"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Chat Input */}
               {isClosed ? (
                 <div className="bg-gray-100 border border-gray-200 text-gray-500 p-3 rounded-2xl text-center text-sm font-semibold">
                   Negotiation is closed.
+                </div>
+              ) : activeTab !== "main" && vendorStatuses[activeTab] === "REJECTED" ? (
+                <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-2xl text-center text-sm font-semibold">
+                  Vendor proposal rejected. Chat disabled.
                 </div>
               ) : (
                 <div className="flex gap-x-2 pt-2 border-t border-gray-100">
@@ -656,7 +800,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 text-sm">
-                    {activeItems.map((item: any) => {
+                    {displayedItems.map((item: any) => {
                       const currentQty =
                         itemEdits[item.id]?.quantity ?? item.quantity
                       const currentPrice =
@@ -667,7 +811,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                           <td className="py-3.5 px-4">
                             <div className="flex flex-col">
                               <span className="font-bold text-gray-900">
-                                {item.title}
+                                {item.title} {item.vendor?.name ? `— ${item.vendor.name}` : ""}
                               </span>
                               <span className="text-xs text-gray-400 font-mono">
                                 {item.variant?.sku ||
@@ -681,7 +825,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                             <input
                               type="number"
                               min={1}
-                              disabled={isLocked || isReadyForPayment || isOrdered || isClosed}
+                              disabled={isLocked || isReadyForPayment || isOrdered || isClosed || ((vendorStatuses[item.vendor?.id || "admin"] === "ACCEPTED" || vendorStatuses[item.vendor?.id || "admin"] === "REJECTED") && !isReopened)}
                               value={currentQty}
                               onChange={(e) =>
                                 handleItemQtyChange(
@@ -697,7 +841,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                               type="number"
                               min={0}
                               step="0.01"
-                              disabled={isLocked || isReadyForPayment || isOrdered || isClosed}
+                              disabled={isLocked || isReadyForPayment || isOrdered || isClosed || ((vendorStatuses[item.vendor?.id || "admin"] === "ACCEPTED" || vendorStatuses[item.vendor?.id || "admin"] === "REJECTED") && !isReopened)}
                               value={currentPrice}
                               onChange={(e) =>
                                 handleItemPriceChange(
@@ -711,7 +855,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                           <td className="py-3.5 px-4 text-right font-black text-gray-900">
                             {formatMoney(total, currencyCode)}
                           </td>
-                          {!isLocked && !isReadyForPayment && !isOrdered && !isClosed && (
+                          {!isLocked && !isReadyForPayment && !isOrdered && !isClosed && !((vendorStatuses[item.vendor?.id || "admin"] === "ACCEPTED" || vendorStatuses[item.vendor?.id || "admin"] === "REJECTED") && !isReopened) && (
                             <td className="py-3.5 px-4 text-right">
                               <button
                                 onClick={() =>
@@ -888,6 +1032,14 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                         Cancel Changes
                       </button>
                     )}
+                    {!isReopened && Object.values(vendorStatuses).some(v => v === "ACCEPTED" || v === "REJECTED") && (
+                      <button
+                        onClick={() => setIsReopened(true)}
+                        className="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-xl text-sm hover:bg-gray-100 transition-colors shadow-sm"
+                      >
+                        Unlock to Counter
+                      </button>
+                    )}
                     <button
                       onClick={handleSaveProposal}
                       disabled={savingProposal}
@@ -895,16 +1047,17 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                     >
                       {savingProposal ? "Saving Proposal..." : "Save Proposal Changes"}
                     </button>
-                    {proposal?.metadata?.admin_offer_approved === true ? (
+                    {allResolved ? (
                       <button
-                        onClick={handleAcceptOffer}
-                        className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold py-3 px-4 rounded-xl text-sm hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md"
+                        onClick={handleFinalAcceptQuote}
+                        disabled={processingAction}
+                        className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-extrabold py-3 px-4 rounded-xl text-sm hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md disabled:opacity-50"
                       >
-                        Accept Offer
+                        {processingAction ? "Processing..." : "Final Accept & Lock"}
                       </button>
                     ) : (
                       <div className="flex-1 bg-gray-200 text-gray-500 font-extrabold py-3 px-4 rounded-xl text-sm text-center shadow-inner cursor-not-allowed flex items-center justify-center">
-                        Waiting for Admin Approval
+                        Waiting for All Vendors
                       </div>
                     )}
                   </div>

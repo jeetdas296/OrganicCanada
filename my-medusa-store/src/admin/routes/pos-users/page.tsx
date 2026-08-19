@@ -2,6 +2,7 @@ import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { UsersSolid } from "@medusajs/icons"
 import { Container, Heading, Table, Button, Badge, toast, Input, Label, Select } from "@medusajs/ui"
 import { useEffect, useState } from "react"
+import { useVendorSidebar } from "../../hooks/useVendorSidebar"
 
 type PosUser = {
   id: string
@@ -15,6 +16,7 @@ type PosUser = {
 }
 
 export default function PosUsersPage() {
+  useVendorSidebar()
   const [users, setUsers] = useState<PosUser[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)

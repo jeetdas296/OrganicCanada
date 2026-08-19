@@ -1,22 +1,15 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
-import { Container, Heading, Text, Button, Input, toast } from "@medusajs/ui"
-import { useState, useEffect } from "react"
-import { DetailWidgetProps, AdminDraftOrder } from "@medusajs/framework/types"
-
+import { DetailWidgetProps, AdminOrder } from "@medusajs/framework/types"
 import { QuoteNegotiation } from "../components/quote-negotiation"
 
-const QuoteNegotiationWidget = ({ data: draftOrder }: DetailWidgetProps<AdminDraftOrder>) => {
-  console.log("✅ Quote Negotiation Widget Loaded")
-  const isB2bQuote = draftOrder.metadata?.is_b2b_quote === true || draftOrder.metadata?.is_b2b_quote === "true"
+const QuoteNegotiationWidget = ({ data: order }: DetailWidgetProps<AdminOrder>) => {
+  const isB2bQuote = order.metadata?.is_b2b_quote === true || order.metadata?.is_b2b_quote === "true"
 
-  return <QuoteNegotiation draftOrderId={draftOrder.id} isB2bQuote={isB2bQuote} />
+  return <QuoteNegotiation draftOrderId={order.id} isB2bQuote={isB2bQuote} />
 }
 
 export const config = defineWidgetConfig({
-  zone: [
-    "order.details.before",
-    "draft_order.details.before",
-  ] as any,
+  zone: "order.details.before"
 })
 
 export default QuoteNegotiationWidget

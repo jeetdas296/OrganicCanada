@@ -3,8 +3,10 @@ import { DocumentText } from "@medusajs/icons"
 import { Container, Heading, Text, Button, toast } from "@medusajs/ui"
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
+import { useVendorSidebar } from "../../../hooks/useVendorSidebar"
 
 const CreateDigitalProduct = () => {
+  useVendorSidebar()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)

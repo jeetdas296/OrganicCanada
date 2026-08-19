@@ -31,6 +31,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       "region.*",
       "metadata",
       "items.*",
+      "items.product_id",
       "shipping_methods.*",
     ],
     filters: { id: targetQuoteId },
@@ -39,6 +40,22 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const order = orders?.[0]
   if (!order || order.metadata?.is_b2b_quote !== true) {
     return res.status(404).json({ message: "B2B Quote not found" })
+  }
+
+  // Inject vendor info into items
+  if (order.items && order.items.length > 0) {
+    const { data: products } = await query.graph({
+      entity: "product",
+      fields: ["id", "vendor.*"]
+    })
+    
+    order.items = order.items.map((item: any) => {
+      const p = products.find((prod: any) => prod.id === item.product_id)
+      if (p?.vendor) {
+        return { ...item, vendor: p.vendor }
+      }
+      return item
+    })
   }
 
   const companyService = req.scope.resolve(COMPANY_MODULE)
@@ -114,6 +131,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       success: true,
       order: result.order,
       message: result.message,
+      messages: result.messages,
       structured_diff: result.structured_diff,
     })
   } catch (error: any) {

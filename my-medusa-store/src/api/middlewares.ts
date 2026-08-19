@@ -540,7 +540,16 @@ const securityHeaders = async (req: MedusaRequest, res: MedusaResponse, next: Me
   res.setHeader("X-Content-Type-Options", "nosniff")
   res.setHeader("X-Frame-Options", "DENY")
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-  res.setHeader("Content-Security-Policy", "default-src 'self'")
+  
+  if (process.env.NODE_ENV === "development") {
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* ws://127.0.0.1:* http://localhost:*; img-src 'self' data: blob:;"
+    )
+  } else {
+    res.setHeader("Content-Security-Policy", "default-src 'self'")
+  }
+  
   next()
 }
 
@@ -576,7 +585,8 @@ const rateLimiter = (max: number, windowMs: number) => {
   }
 }
 
-const loginLimiter = rateLimiter(5, 60 * 1000) // 5 per min
+const loginLimiter = rateLimiter(20, 60 * 1000) // 20 per min
+
 const passwordResetLimiter = rateLimiter(3, 60 * 60 * 1000) // 3 per hour
 
 export default defineMiddlewares({
@@ -596,6 +606,7 @@ export default defineMiddlewares({
     },
     {
       matcher: "/auth/*",
+      method: "POST",
       middlewares: [loginLimiter],
     },
     {
@@ -628,13 +639,15 @@ export default defineMiddlewares({
     },
 
     // 🔴 THE NEW ROUTE BLOCKERS (Secures the backend APIs)
+    { matcher: "/admin/b2b-quotes/:id/negotiation", middlewares: [vendorRouteBlocker] },
+    { matcher: "/admin/b2b-quotes/:id/proposal", middlewares: [vendorRouteBlocker] },
+    
     { matcher: "/admin/customers", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/customers/*", middlewares: [vendorRouteBlocker] },
 
     { matcher: "/admin/price-lists", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/price-lists/*", middlewares: [vendorRouteBlocker] },
 
-    { matcher: "/admin/b2b-quotes", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/vendor-approvals", middlewares: [vendorRouteBlocker] },
 
     { matcher: "/admin/settings", middlewares: [vendorRouteBlocker] },
