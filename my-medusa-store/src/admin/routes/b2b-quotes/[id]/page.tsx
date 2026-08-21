@@ -631,27 +631,6 @@ function VendorQuoteDetails() {
         </Button>
       </div>
 
-      {/* DEBUG PANEL */}
-      <div className="mb-4 bg-red-100 border border-red-500 p-4 rounded text-xs font-mono">
-        <Heading level="h3" className="mb-2 font-bold text-red-700">DEBUG PANEL</Heading>
-        <pre>
-          {JSON.stringify(
-            {
-              activeVendorId: myVendorId,
-              vendorStatuses: quote?.metadata?.vendor_statuses || {},
-              vendorLastSender: quote?.metadata?.vendor_last_sender || {},
-              activeVendorStatus: myVendorId ? (quote?.metadata?.vendor_statuses as any)?.[myVendorId] : undefined,
-              activeVendorLastSender: myVendorId ? (quote?.metadata?.vendor_last_sender as any)?.[myVendorId] : undefined,
-            },
-            null,
-            2
-          )}
-        </pre>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-      </div>
-
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-ui-bg-base w-full max-w-2xl rounded-xl shadow-xl flex flex-col max-h-[85vh]">
@@ -1257,24 +1236,7 @@ function AdminB2BQuoteDetailPage() {
 
       {/* Main Full Page 65% / 35% Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 flex-1 min-h-0 h-[calc(100vh-80px)] max-h-[calc(100vh-80px)] overflow-hidden">
-        {/* DEBUG PANEL */}
-        {/* <div className="lg:col-span-12 mb-4 bg-red-100 border border-red-500 p-4 rounded text-xs font-mono">
-          <Heading level="h3" className="mb-2 font-bold text-red-700">DEBUG PANEL</Heading>
-          <pre>
-            {JSON.stringify(
-              {
-                activeVendorId: targetVendorId,
-                vendorStatuses: proposal?.metadata?.vendor_statuses || {},
-                vendorLastSender: proposal?.metadata?.vendor_last_sender || {},
-                activeVendorStatus: targetVendorId ? (proposal?.metadata?.vendor_statuses as any)?.[targetVendorId] : undefined,
-                activeVendorLastSender: targetVendorId ? (proposal?.metadata?.vendor_last_sender as any)?.[targetVendorId] : undefined,
-                availableVendorIds: vendorTabs.map((t: any) => t.id)
-              },
-              null,
-              2
-            )}
-          </pre>
-        </div> */}
+
         {/* LEFT COLUMN (65%, 8 cols): Full Conversation Timeline & Version History */}
         <div className="lg:col-span-8 flex flex-col bg-ui-bg-base border border-ui-border-base rounded-2xl p-6 shadow-sm h-full min-h-0 overflow-hidden">
           <div className="border-b border-ui-border-base pb-3 mb-4 flex items-center justify-between shrink-0">

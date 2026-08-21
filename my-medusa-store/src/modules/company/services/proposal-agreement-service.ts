@@ -570,9 +570,13 @@ export class ProposalAgreementService {
       admin_offer_approved: false,
     }
 
-    // Initialize vendor_statuses and vendor_last_sender objects if not present
-    metadataUpdate.vendor_statuses = metadataUpdate.vendor_statuses || {}
-    metadataUpdate.vendor_last_sender = metadataUpdate.vendor_last_sender || {}
+    // Initialize vendor_statuses and vendor_last_sender objects if not present using deep copies
+    metadataUpdate.vendor_statuses = {
+      ...((order.metadata?.vendor_statuses as any) || {}),
+    }
+    metadataUpdate.vendor_last_sender = {
+      ...((order.metadata?.vendor_last_sender as any) || {}),
+    }
 
     // Get all vendors currently in the quote
     const quoteVendors = new Set<string>()

@@ -203,7 +203,7 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
     const vendorStatuses = (currentOrder.metadata?.vendor_statuses as any) || {}
     const vendorLastSender = (currentOrder.metadata?.vendor_last_sender as any) || {}
 
-    if (action === "accept" && vendorLastSender[finalVendorId] === "admin") {
+    if (action === "accept" && vendorLastSender[finalVendorId] !== "customer") {
       return res.status(400).json({ message: "You cannot accept your own proposal. Waiting for customer." })
     }
 

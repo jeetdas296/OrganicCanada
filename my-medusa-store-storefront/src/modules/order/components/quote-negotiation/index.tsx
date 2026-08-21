@@ -690,8 +690,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
                     Vendor Status: <span className="font-bold text-gray-900">{vendorStatuses[activeTab] || "NEGOTIATING"}</span>
                   </div>
                   <div className="flex gap-x-2">
-                    {((activeTab === "admin" && vendorLastSender[activeTab] === "admin") || 
-                      (activeTab !== "admin" && vendorLastSender[activeTab] && vendorLastSender[activeTab] !== "customer")) && (
+                    {vendorLastSender[activeTab] !== "customer" && (
                       <button
                         onClick={() => handleAcceptVendor(activeTab)}
                         disabled={processingAction || vendorStatuses[activeTab] === "ACCEPTED"}
