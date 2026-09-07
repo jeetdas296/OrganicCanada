@@ -1,6 +1,7 @@
 import { defineMiddlewares } from "@medusajs/framework/http"
 import { MedusaRequest, MedusaResponse, MedusaNextFunction, authenticate } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
+import multer from "multer"
 
 // --------------------------------------------------------
 // 🟢 THE SMART IDENTIFIER
@@ -585,6 +586,8 @@ const rateLimiter = (max: number, windowMs: number) => {
   }
 }
 
+const upload = multer({ storage: multer.memoryStorage() })
+
 const loginLimiter = rateLimiter(20, 60 * 1000) // 20 per min
 
 const passwordResetLimiter = rateLimiter(3, 60 * 60 * 1000) // 3 per hour
@@ -649,6 +652,21 @@ export default defineMiddlewares({
     { matcher: "/admin/price-lists/*", middlewares: [vendorRouteBlocker] },
 
     { matcher: "/admin/vendor-approvals", middlewares: [vendorRouteBlocker] },
+    {
+      matcher: "/admin/oms/shipping/:shipmentId/timeline/:step/documents",
+      method: "POST",
+      middlewares: [upload.single("file")],
+    },
+    {
+      matcher: "/admin/oms/shipping/:shipmentId/timeline/:step/documents/:documentId",
+      method: "PUT",
+      middlewares: [upload.single("file")],
+    },
+    {
+      matcher: "/admin/oms/shipping/:shipmentId/timeline/:step/documents/:documentId",
+      method: "POST",
+      middlewares: [upload.single("file")],
+    },
 
     { matcher: "/admin/settings", middlewares: [vendorRouteBlocker] },
     { matcher: "/admin/settings/*", middlewares: [vendorRouteBlocker] },

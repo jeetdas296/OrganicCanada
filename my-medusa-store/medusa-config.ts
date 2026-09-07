@@ -77,6 +77,26 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/bundle",
     },
+    // 🚚 Fulfillment PAL Module
+    {
+      resolve: "./src/modules/fulfillment-pal",
+    },
+    // 🚚 Core Fulfillment Module Registration
+    {
+      resolve: "@medusajs/fulfillment",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/fulfillment-manual",
+            id: "manual",
+          },
+          {
+            resolve: "./src/modules/fulfillment-pal/providers",
+            id: "organic_canada",
+          }
+        ]
+      }
+    },
     {
       resolve: "./src/modules/b2b",
       key: B2B_MODULE,

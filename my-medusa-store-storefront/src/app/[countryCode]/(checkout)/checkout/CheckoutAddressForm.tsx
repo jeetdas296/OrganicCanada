@@ -5,14 +5,14 @@ import { useRouter, useParams } from "next/navigation";
 import { unlockStripe } from "./actions"; // 👈 Ensure this path points to your actions file
 import { sdk } from "@lib/config"; // 👈 Ensure this points to your Medusa JS SDK instance!
 
-export default function CheckoutAddressForm({ 
-  savedAddresses, 
-  customer, 
-  cart 
-}: { 
-  savedAddresses: any[], 
-  customer: any, 
-  cart: any 
+export default function CheckoutAddressForm({
+  savedAddresses,
+  customer,
+  cart
+}: {
+  savedAddresses: any[],
+  customer: any,
+  cart: any
 }) {
   const router = useRouter();
   const params = useParams();
@@ -49,8 +49,8 @@ export default function CheckoutAddressForm({
         postal_code: address.postal_code || "",
         phone: address.phone || customer?.phone || "",
         country_code:
-  cart?.region?.countries?.[0]?.iso_2 ||
-  form.country_code
+          cart?.region?.countries?.[0]?.iso_2 ||
+          form.country_code
       });
     } else {
       setForm({ ...form, address_1: "", city: "", province: "", postal_code: "" });
@@ -83,9 +83,9 @@ export default function CheckoutAddressForm({
         setIsSaved(true);
         // STEP B: Generate a fresh Stripe session
         await unlockStripe().catch(console.error);
-        
+
         // STEP C: Refresh the page so page.tsx wakes up, sees the address, and attaches the shipping!
-        router.refresh(); 
+        router.refresh();
       }
     } catch (err) {
       console.error("Failed to save address:", err);
@@ -93,14 +93,14 @@ export default function CheckoutAddressForm({
       setIsSaving(false);
     }
     console.log("Cart Region:", cart.region?.name)
-console.log("Allowed Countries:", cart.region?.countries)
-console.log("Submitting Country:", form.country_code)
+    console.log("Allowed Countries:", cart.region?.countries)
+    console.log("Submitting Country:", form.country_code)
   };
 
   return (
     <div className="bg-white rounded-3 shadow-sm p-4 mb-4 border">
       <h5 className="fw-bold mb-4"><i className="icofont-location-pin text-success me-2"></i>Delivery Address</h5>
-      
+
       {/* DROPDOWN */}
       {savedAddresses.length > 0 && (
         <div className="mb-4 bg-light p-3 rounded border border-success border-opacity-50">
@@ -154,8 +154,8 @@ console.log("Submitting Country:", form.country_code)
 
         {/* 🟢 THE SAVE BUTTON */}
         <div className="mt-4">
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className={`btn w-100 py-3 fw-bold ${isSaved ? 'btn-success' : 'btn-dark'}`}
             disabled={isSaving}
           >

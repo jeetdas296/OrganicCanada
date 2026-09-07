@@ -59,19 +59,71 @@ export const routeFulfillmentStep = createStep(
       orderId: string
       locationId: string
       items: Array<{ item_id: string; quantity: number }>
+      providerId?: string
     },
     { container }
   ) => {
     const fulfillmentService = container.resolve(Modules.FULFILLMENT)
+    const query = container.resolve("query")
+
+    const resolvedLocationId = input.locationId || await resolveLocationBySalesChannel(input.orderId, container)
+
+    let originCountry: string | null = null
+    let destinationCountry: string | null = null
+    let orderType = "B2C"
+
+    // Fetch Stock Location to get Origin Country
+    if (resolvedLocationId) {
+      const { data: locations } = await query.graph({
+        entity: "stock_location",
+        fields: ["id", "address.country_code"],
+        filters: { id: resolvedLocationId },
+      })
+      originCountry = locations?.[0]?.address?.country_code || null
+    }
+
+    // Fetch Order to get Destination Country & B2B Status
+    if (input.orderId) {
+      const { data: orders } = await query.graph({
+        entity: "order",
+        fields: [
+          "id", 
+          "shipping_address.country_code", 
+          "metadata",
+          "customer.metadata"
+        ],
+        filters: { id: input.orderId },
+      })
+      const order = orders?.[0]
+      destinationCountry = order?.shipping_address?.country_code || null
+      
+      const b2bStatus = order?.customer?.metadata?.b2b_status
+      if (b2bStatus === "approved") {
+        orderType = "B2B"
+      }
+    }
+
+    if (!originCountry) {
+      throw new Error(`Unable to resolve physical origin country for location: ${resolvedLocationId}`)
+    }
+
+    if (!destinationCountry) {
+      throw new Error(`Unable to resolve customer destination country for order: ${input.orderId}`)
+    }
 
     const fulfillment = await fulfillmentService.createFulfillment({
-      location_id: input.locationId || await resolveLocationBySalesChannel(input.orderId, container),
+      location_id: resolvedLocationId,
       items: input.items as any,
       order_id: input.orderId,
-      provider_id: "manual", // swap with your provider ID e.g. "shipstation"
+      provider_id: input.providerId || "manual", // Default to manual if not provided
       delivery_address: {},
       labels: [],
       order: { id: input.orderId } as any,
+      data: {
+        originCountry,
+        destinationCountry,
+        orderType
+      }
     } as any)
 
     console.log("OMS: Fulfillment created: " + fulfillment.id)
@@ -140,6 +192,7 @@ export const fulfillOrderWorkflow = createWorkflow(
     orderId: string
     locationId: string
     items: Array<{ item_id: string; quantity: number }>
+    providerId?: string
   }) => {
     const { fulfillment } = routeFulfillmentStep(input)
     return new WorkflowResponse({ fulfillment })
