@@ -27,6 +27,11 @@ export const CARRIER_CAPABILITIES: Record<string, { transportModes: TransportMod
     transportModes: ["PARCEL"],
     domestic: true,
     crossBorder: false
+  },
+  shiprocket: {
+    transportModes: ["PARCEL"],
+    domestic: true,
+    crossBorder: false
   }
 }
 

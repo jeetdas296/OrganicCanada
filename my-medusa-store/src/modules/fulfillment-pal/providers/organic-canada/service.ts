@@ -9,7 +9,8 @@ import {
   DhlAdapter, 
   FedexAdapter, 
   UpsAdapter, 
-  ShipstationAdapter 
+  ShipstationAdapter,
+  ShiprocketAdapter
 } from "./adapters"
 
 export class OrganicCanadaProviderService extends AbstractPalProviderAdapter {
@@ -24,7 +25,8 @@ export class OrganicCanadaProviderService extends AbstractPalProviderAdapter {
       new DhlAdapter(options),
       new FedexAdapter(),
       new UpsAdapter(),
-      new ShipstationAdapter()
+      new ShipstationAdapter(),
+      new ShiprocketAdapter(options)
     ]
 
     // Override adapter statuses dynamically if passed through config/options
@@ -96,13 +98,83 @@ export class OrganicCanadaProviderService extends AbstractPalProviderAdapter {
     if (!carrier) {
       throw new Error("PROVIDER_NOT_CONFIGURED")
     }
-    return await carrier.bookShipment(context)
+    
+    try {
+      const result = await carrier.bookShipment(context)
+      result.metadata = {
+        ...(result.metadata || {}),
+        carrier_id: carrier.getIdentifier()
+      }
+      return result
+    } catch (err: any) {
+      if (err.metadata) {
+        err.metadata.carrier_id = carrier.getIdentifier()
+      }
+      throw err
+    }
   }
 
   protected async voidShipment(trackingNumber: string): Promise<boolean> {
-    // In our orchestration design, voiding requires carrier resolution.
-    // If not possible, default to throwing NOT_CONFIGURED.
-    throw new Error("PROVIDER_NOT_CONFIGURED")
+    try {
+      // 1. Resolve global PAL service instance
+      const { default: FulfillmentPalModuleService } = await import("./../../service")
+      const palService = FulfillmentPalModuleService.instance
+      
+      if (!palService) {
+        console.warn("[PAL] Cannot void shipment: no palService instance available")
+        return false
+      }
+      
+      // 2. Look up booking by external_booking_id
+      const bookings = await (palService as any).listPalProviderBookings({
+        external_booking_id: trackingNumber
+      })
+      
+      if (!bookings || bookings.length === 0) {
+        console.warn(`[PAL] No booking found for trackingNumber ${trackingNumber}`)
+        return false
+      }
+      
+      const booking = bookings[0]
+      const metadata = booking.response_payload?.metadata
+      const carrierId = metadata?.carrier_id
+      
+      if (!carrierId) {
+        console.warn(`[PAL] No carrier_id recorded in booking metadata for ${trackingNumber}`)
+        return false
+      }
+      
+      // 3. Delegate cancellation to the EXACT adapter that created it
+      const carrier = this.subAdapters.find(a => a.getIdentifier() === carrierId)
+      if (!carrier) {
+        console.warn(`[PAL] Carrier ${carrierId} not found in connected adapters`)
+        return false
+      }
+      
+      if (carrier.getStatus() !== "CONNECTED") {
+        console.warn(`[PAL] Carrier ${carrierId} is disconnected. Cannot cancel shipment.`)
+        return false
+      }
+      
+      try {
+        const success = await carrier.cancelShipment(trackingNumber, metadata)
+        if (success) {
+          // Update booking status to VOIDED on success
+          await (palService as any).updatePalProviderBookings({
+            id: booking.id,
+            status: "VOIDED"
+          })
+          return true
+        }
+      } catch (err) {
+        console.error(`[PAL] Error cancelling shipment via ${carrierId}:`, err)
+      }
+      
+      return false
+    } catch (e: any) {
+      console.error("[PAL] Error in voidShipment:", e)
+      return false
+    }
   }
 
   protected async fetchTracking(trackingNumber: string): Promise<any> {

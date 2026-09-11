@@ -72,11 +72,23 @@ export default function CheckoutAddressForm({
       const pubKey = process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY || "";
       const backendUrl = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000";
 
-      // STEP A: Save the shipping address to the Medusa cart
-      const response = await fetch(`${backendUrl}/store/carts/${cart.id}`, {
+      // STEP A: Evaluate if this is a domestic or cross-border address
+      const normalizedCountryCode = form.country_code.trim().toLowerCase();
+      const isDomestic = cart?.region?.countries?.some((c: any) => c.iso_2 === normalizedCountryCode)
+      
+      const endpoint = isDomestic
+        ? `${backendUrl}/store/carts/${cart.id}`
+        : `${backendUrl}/store/custom-carts/${cart.id}/shipping-address`
+
+      const payload = {
+        ...form,
+        country_code: normalizedCountryCode
+      };
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-publishable-api-key": pubKey },
-        body: JSON.stringify({ shipping_address: form })
+        body: JSON.stringify({ shipping_address: payload })
       });
 
       if (response.ok) {
@@ -86,6 +98,9 @@ export default function CheckoutAddressForm({
 
         // STEP C: Refresh the page so page.tsx wakes up, sees the address, and attaches the shipping!
         router.refresh();
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to save address")
       }
     } catch (err) {
       console.error("Failed to save address:", err);
@@ -145,6 +160,10 @@ export default function CheckoutAddressForm({
           <div className="col-md-4">
             <label className="form-label text-muted small fw-bold">ZIP Code</label>
             <input name="postal_code" type="text" className="form-control" value={form.postal_code} onChange={handleChange} required placeholder="10001" />
+          </div>
+          <div className="col-12">
+            <label className="form-label text-muted small fw-bold">Country Code (2-letter)</label>
+            <input name="country_code" type="text" maxLength={2} className="form-control text-uppercase" value={form.country_code} onChange={handleChange} required placeholder="US" />
           </div>
           <div className="col-12">
             <label className="form-label text-muted small fw-bold">Phone Number</label>

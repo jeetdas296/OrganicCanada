@@ -105,11 +105,9 @@ export async function unlockStripe() {
     }
 
     try {
-      await initiatePaymentSession(cart, { provider_id: "stripe" });
+      await setPaymentSessionAction(cart.id, "pp_stripe_stripe");
     } catch (e) {
-      await initiatePaymentSession(cart, {
-        provider_id: "pp_stripe_stripe",
-      });
+      console.error("unlockStripe: Failed to initiate payment session", e);
     }
 
     revalidateTag("cart");

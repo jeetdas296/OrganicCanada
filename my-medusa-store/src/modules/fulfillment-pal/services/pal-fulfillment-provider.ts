@@ -88,6 +88,7 @@ export class PalFulfillmentProviderService extends AbstractFulfillmentProviderSe
     // 1. Resolve Fulfillment -> location_id -> Stock Location -> Address (Origin)
     const fulfillmentId = fulfillment?.id || "unknown_fulfillment"
     const orderId = order?.id || "unknown_order"
+    const locationId = fulfillment?.location_id
     
     // Attempt to extract addresses from the objects passed by Medusa core
     // Removed fallbacks to prevent false CROSS_BORDER classification
@@ -119,6 +120,7 @@ export class PalFulfillmentProviderService extends AbstractFulfillmentProviderSe
       input: {
         orderId,
         fulfillmentId,
+        locationId,
         items: items || [],
         packages: (data?.packages as any[]) || [],
         originStockLocationAddress,

@@ -32,8 +32,8 @@ export default function PaymentSelector({
     setIsProcessing(true);
     
     // Medusa v2 native system identifier matching backend
-    let providerId = "stripe";
-    if (method === "paypal") providerId = "paypal";
+    let providerId = "pp_stripe_stripe";
+    if (method === "paypal") providerId = "pp_paypal_paypal";
     if (method === "manual") providerId = "pp_system_default"; 
 
     try {

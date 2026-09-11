@@ -262,7 +262,7 @@ export default function StripePayment({
   }
 
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret }}>
+    <Elements key={clientSecret} stripe={stripePromise} options={{ clientSecret }}>
       <CheckoutForm cart={cart} b2bQuoteId={b2bQuoteId} draftOrder={draftOrder} />
     </Elements>
   );

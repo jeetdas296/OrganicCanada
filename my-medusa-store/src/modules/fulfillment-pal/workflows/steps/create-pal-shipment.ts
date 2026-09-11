@@ -10,6 +10,7 @@ export const createPalShipmentStep = createStep(
   async (input: { 
     orderId: string, 
     fulfillmentId?: string, 
+    locationId?: string,
     items: any[], 
     packages: any[],
     originStockLocationAddress: any,
@@ -66,7 +67,10 @@ export const createPalShipmentStep = createStep(
           packageType: p.package_type,
           weight: p.weight,
           quantity: p.quantity
-        }))
+        })),
+        metadata: {
+          location_id: input.locationId
+        }
       }
       return new StepResponse(context, context.shipmentId)
     }
@@ -197,7 +201,10 @@ export const createPalShipmentStep = createStep(
         packageType: p.package_type,
         weight: p.weight,
         quantity: p.quantity
-      }))
+      })),
+      metadata: {
+        location_id: input.locationId
+      }
     }
     
     return new StepResponse(context, context.shipmentId)

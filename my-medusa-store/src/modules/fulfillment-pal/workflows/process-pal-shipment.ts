@@ -17,6 +17,7 @@ export const processPalShipmentWorkflow = createWorkflow(
   (input: { 
     orderId: string, 
     fulfillmentId?: string, 
+    locationId?: string,
     items: any[], 
     packages: any[],
     originStockLocationAddress: any,

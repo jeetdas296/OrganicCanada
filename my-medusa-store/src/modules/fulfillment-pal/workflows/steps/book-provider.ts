@@ -18,16 +18,32 @@ export const bookProviderStep = createStep(
       shipment_id: input.context.shipmentId
     })
 
+    let existingPartialBookingId: string | null = null
+
     if (existingBookings && existingBookings.length > 0) {
       const booking = existingBookings[0]
       const responsePayload = booking.response_payload || {}
-      return new StepResponse({
-        providerId: input.providerId,
-        trackingNumber: booking.external_booking_id || "unknown",
-        labels: responsePayload.labels || [],
-        cost: responsePayload.cost,
-        status: "BOOKED"
-      })
+      
+      // We must only return early if the booking is fully complete.
+      if (booking.status === "BOOKED" && booking.external_booking_id && booking.external_booking_id !== "NOT_BOOKED" && booking.external_booking_id !== "PARTIAL" && booking.external_booking_id !== "unknown") {
+        return new StepResponse({
+          providerId: input.providerId,
+          trackingNumber: booking.external_booking_id,
+          labels: responsePayload.labels || [],
+          cost: responsePayload.cost,
+          status: "BOOKED"
+        })
+      }
+      
+      // For partial or failed bookings, merge persisted metadata into context
+      if (responsePayload.metadata) {
+        input.context.metadata = {
+          ...(input.context.metadata || {}),
+          ...(responsePayload.metadata as any)
+        }
+      }
+      
+      existingPartialBookingId = booking.id
     }
 
     // 2. Resolve database configuration for carriers
@@ -98,6 +114,31 @@ export const bookProviderStep = createStep(
           status: "CREATED" // Keep PAL Shipment as CREATED since Carrier is NOT_CONFIGURED
         })
       }
+      if (error.metadata) {
+        const dbProviders = await palService.listPalProviders({ code: "ORGANIC_CANADA" })
+        const dbProviderId = dbProviders[0]?.id || input.providerId
+        
+        if (existingPartialBookingId) {
+          await palService.updatePalProviderBookings({
+            id: existingPartialBookingId,
+            status: "PARTIAL_BOOKED",
+            external_booking_id: "PARTIAL",
+            external_shipment_id: "PARTIAL",
+            response_payload: { error: error.message, metadata: error.metadata },
+            booked_at: new Date()
+          })
+        } else {
+          await palService.createPalProviderBookings({
+            shipment_id: input.context.shipmentId,
+            provider_id: dbProviderId,
+            external_booking_id: "PARTIAL",
+            external_shipment_id: "PARTIAL",
+            status: "PARTIAL_BOOKED",
+            response_payload: { error: error.message, metadata: error.metadata },
+            booked_at: new Date()
+          })
+        }
+      }
       throw error // Re-throw other errors
     }
     
@@ -106,19 +147,36 @@ export const bookProviderStep = createStep(
     const dbProviderId = dbProviders[0]?.id || input.providerId
 
     // 4. Database Persistence: persist the booking details
-    await palService.createPalProviderBookings({
-      shipment_id: input.context.shipmentId,
-      provider_id: dbProviderId,
-      external_booking_id: result.trackingNumber,
-      external_shipment_id: result.trackingNumber,
-      status: "BOOKED",
-      response_payload: {
-        cost: result.cost,
-        currency: result.currency,
-        labels: result.labels
-      },
-      booked_at: new Date()
-    })
+    if (existingPartialBookingId) {
+      await palService.updatePalProviderBookings({
+        id: existingPartialBookingId,
+        external_booking_id: result.trackingNumber,
+        external_shipment_id: result.trackingNumber,
+        status: "BOOKED",
+        response_payload: {
+          cost: result.cost,
+          currency: result.currency,
+          labels: result.labels,
+          metadata: result.metadata
+        },
+        booked_at: new Date()
+      })
+    } else {
+      await palService.createPalProviderBookings({
+        shipment_id: input.context.shipmentId,
+        provider_id: dbProviderId,
+        external_booking_id: result.trackingNumber,
+        external_shipment_id: result.trackingNumber,
+        status: "BOOKED",
+        response_payload: {
+          cost: result.cost,
+          currency: result.currency,
+          labels: result.labels,
+          metadata: result.metadata
+        },
+        booked_at: new Date()
+      })
+    }
 
     return new StepResponse({
       providerId: input.providerId,

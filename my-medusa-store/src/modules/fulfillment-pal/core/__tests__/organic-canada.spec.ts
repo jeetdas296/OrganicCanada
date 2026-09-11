@@ -393,6 +393,7 @@ describe("Organic Canada Provider", () => {
       mockPalService.listPalProviderBookings.mockResolvedValue([
         {
           id: "book_99",
+          status: "BOOKED",
           external_booking_id: "TRACK-EXISTING",
           response_payload: {
             cost: 50,

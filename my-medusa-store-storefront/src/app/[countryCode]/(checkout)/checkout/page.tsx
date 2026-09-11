@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import PaymentSelector from "./PaymentSelector";
 import { convertToLocale } from "@lib/util/money";
 import B2BQuoteSubmitButton from "./B2BQuoteSubmitButton";
-import { ensureB2BMetadataOnCart } from "./actions";
+import { ensureB2BMetadataOnCart, setPaymentSessionAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -63,8 +63,6 @@ export default async function CheckoutPage(props: {
     "x-publishable-api-key": pubKey,
   };
 
-  console.log("🛠️ DEBUG: Fetching shipping options for cart:", cart.id);
-
   const optionsRes = await fetch(
     `${backendUrl}/store/shipping-options?cart_id=${cart.id}`,
     { headers, cache: "no-store" }
@@ -72,7 +70,6 @@ export default async function CheckoutPage(props: {
 
   const optionsData = await optionsRes.json();
   const options = optionsData.shipping_options || [];
-  const isReadyForPayment = !!cart.shipping_methods?.length;
 
   if (options.length > 0) {
     let correctOptionId = options[0].id;
@@ -103,10 +100,8 @@ export default async function CheckoutPage(props: {
       cart.shipping_methods?.[0]?.shipping_option_id;
 
     if (currentMethodId !== correctOptionId) {
-      console.log(
-        "🔄 Wrong or missing shipping method. Overwriting to:",
-        correctOptionId
-      );
+      // Preserve existing provider if user had already selected one, default to stripe
+      const existingProviderId = cart?.payment_collection?.payment_sessions?.[0]?.provider_id || "pp_stripe_stripe";
 
       await fetch(
         `${backendUrl}/store/carts/${cart.id}/shipping-methods`,
@@ -118,11 +113,28 @@ export default async function CheckoutPage(props: {
         }
       );
 
-      cart = await retrieveCart();
-    } else {
-      console.log("✅ Cart already has the correct shipping method.");
+      // Changing shipping method invalidates the cart's payment sessions.
+      // Re-establish it using the standard setPaymentSessionAction mechanism.
+      await setPaymentSessionAction(cart.id, existingProviderId);
     }
   }
+
+  // ── Retrieve Final Cart State ───────────────────────────────────────────────
+  // Fetch a completely fresh, uncached cart from the backend to guarantee we get
+  // the newly populated payment sessions AND the explicit shipping_address relation.
+  const freshCartRes = await fetch(
+    `${backendUrl}/store/carts/${cart.id}?fields=*shipping_address,*shipping_methods,*payment_collection,*payment_collection.payment_sessions,*items,*items.product,*items.variant,*items.thumbnail,*items.metadata,+items.total,*promotions,+shipping_methods.name,*region`,
+    { headers, cache: "no-store" }
+  );
+  
+  if (freshCartRes.ok) {
+    const freshData = await freshCartRes.json();
+    cart = freshData.cart;
+  }
+
+  const isReadyForPayment = !!cart.shipping_methods?.length;
+  const hasShippingAddress = !!cart.shipping_address?.country_code;
+  const showNoShippingAlert = !isPureDigitalCart && hasShippingAddress && !isReadyForPayment;
 
   // ── Stripe Client Secret ────────────────────────────────────────────────────
   let clientSecret = "";
@@ -141,6 +153,9 @@ export default async function CheckoutPage(props: {
     (sum: number, item: any) => sum + item.unit_price * item.quantity,
     0
   );
+
+  const existingProviderId = cart?.payment_collection?.payment_sessions?.[0]?.provider_id;
+  const shouldRenderPaymentSelector = isReadyForPayment && !isB2BQuoteRequired;
 
   return (
     <>
@@ -161,6 +176,13 @@ export default async function CheckoutPage(props: {
                 customer={customer}
                 cart={cart}
               />
+
+              {showNoShippingAlert && (
+                <div className="alert alert-danger shadow-sm border-danger mb-4">
+                  <i className="icofont-warning me-2"></i>
+                  <strong>Shipping is not available to this country.</strong> Please select a different country.
+                </div>
+              )}
 
               {/* Payment Method */}
               {isReadyForPayment ? (
