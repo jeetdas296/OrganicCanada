@@ -94,6 +94,13 @@ export class OrganicCanadaProviderService extends AbstractPalProviderAdapter {
   }
 
   protected async bookShipment(context: ShipmentContext): Promise<ProviderShipmentResult> {
+    // If no carrier was explicitly selected by the user/system via metadata,
+    // defer booking until the UI triggers it.
+    const preferred = context.metadata?.preferredProviders as string[] || []
+    if (preferred.length === 0) {
+      throw new Error("PROVIDER_NOT_CONFIGURED")
+    }
+
     const carrier = this.routeCarrier(context)
     if (!carrier) {
       throw new Error("PROVIDER_NOT_CONFIGURED")
@@ -178,17 +185,54 @@ export class OrganicCanadaProviderService extends AbstractPalProviderAdapter {
   }
 
   protected async fetchTracking(trackingNumber: string): Promise<any> {
-    // Attempt to track via each connected carrier until one succeeds, or we can look up which carrier owns it.
-    // For now we assume if DHL is connected, we use it (or we could route based on tracking number format)
-    const active = this.subAdapters.filter(a => a.getStatus() === "CONNECTED")
-    for (const carrier of active) {
+    try {
+      // 1. Resolve FulfillmentPalModuleService
+      const { FULFILLMENT_PAL_MODULE } = await import("../../index")
+      const { Medusa } = await import("@medusajs/framework/utils")
+      
+      let palService: any
       try {
-        const result = await carrier.getTracking(trackingNumber)
-        if (result) return result
-      } catch (err) {
-        // ignore and try next
+        const { FulfillmentPalModuleService } = await import("../../services/pal-fulfillment-provider")
+        palService = (FulfillmentPalModuleService as any).instance
+      } catch (e) {
+        console.warn("[PAL] Could not resolve static instance, tracking may fail")
       }
+
+      if (!palService) {
+        throw new Error("Could not resolve FulfillmentPalModuleService")
+      }
+
+      // 2. Look up the booking by tracking number (external_booking_id)
+      const bookings = await (palService as any).listPalProviderBookings({
+        external_booking_id: trackingNumber
+      })
+
+      if (!bookings || bookings.length === 0) {
+        throw new Error(`[PAL] No booking found for tracking number ${trackingNumber}`)
+      }
+
+      const booking = bookings[0]
+      const metadata = booking.response_payload?.metadata || {}
+      const carrierId = metadata.carrier_id
+
+      if (!carrierId) {
+        throw new Error(`[PAL] Booking found but no carrier_id in metadata for tracking ${trackingNumber}`)
+      }
+
+      // 3. Find exact adapter and call getTracking
+      const carrier = this.subAdapters.find(a => a.getIdentifier() === carrierId)
+      if (!carrier) {
+        throw new Error(`[PAL] Carrier ${carrierId} not found in connected adapters`)
+      }
+      
+      if (carrier.getStatus() !== "CONNECTED") {
+        throw new Error(`[PAL] Carrier ${carrierId} is disconnected.`)
+      }
+      
+      return await carrier.getTracking(trackingNumber, metadata)
+    } catch (e: any) {
+      console.error("[PAL] Error in fetchTracking:", e)
+      throw new Error(`Tracking not found or provider not configured: ${e.message}`)
     }
-    throw new Error("Tracking not found or provider not configured")
   }
 }

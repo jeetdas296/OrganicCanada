@@ -43,20 +43,31 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
   const vendorTabsMap = new Map<string, any>()
   const items = draftOrder.items || []
   if (items.length > 0) {
-    const { data: products } = await query.graph({
-      entity: "product",
-      fields: ["id", "vendor.*"]
-    })
+    const itemProductIds = items.map((i: any) => i.product_id).filter(Boolean)
     
-    items.forEach((item: any) => {
-      const p = products.find((prod: any) => prod.id === item.product_id)
-      if (p?.vendor?.id) {
-        vendorTabsMap.set(p.vendor.id, {
-          id: p.vendor.id,
-          name: p.vendor.name || "Vendor"
-        })
-      }
-    })
+    if (itemProductIds.length > 0) {
+      const { data: products } = await query.graph({
+        entity: "product",
+        fields: ["id", "vendor.*"],
+        filters: { id: itemProductIds },
+        pagination: { take: 100 }
+      })
+      
+      items.forEach((item: any) => {
+        const p = products.find((prod: any) => prod.id === item.product_id)
+        if (p?.vendor?.id) {
+          vendorTabsMap.set(p.vendor.id, {
+            id: p.vendor.id,
+            name: p.vendor.name || "Vendor"
+          })
+        } else if (p) {
+          vendorTabsMap.set("admin", {
+            id: "admin",
+            name: "Organic Canada"
+          })
+        }
+      })
+    }
   }
 
   let [conversation] = await companyService.listQuoteConversations(
@@ -129,12 +140,20 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   let validVendorId: string | null = null
 
   if (vendor_id && action !== "final_accept") {
-    const { data: products } = await query.graph({
-      entity: "product",
-      fields: ["id", "vendor.*"]
-    })
-    const vendorProductIds = products.filter((p: any) => p.vendor?.id === vendor_id).map((p: any) => p.id)
-    const hasProductInQuote = draftOrder.items?.some((item: any) => vendorProductIds.includes(item.product_id))
+    const itemProductIds = draftOrder.items?.map((i: any) => i.product_id).filter(Boolean) || []
+    let hasProductInQuote = false
+    
+    if (itemProductIds.length > 0) {
+      const { data: products } = await query.graph({
+        entity: "product",
+        fields: ["id", "vendor.*"],
+        filters: { id: itemProductIds },
+        pagination: { take: 100 }
+      })
+      hasProductInQuote = products.some((p: any) => 
+        vendor_id === "admin" ? !p.vendor?.id : p.vendor?.id === vendor_id
+      )
+    }
     
     if (!hasProductInQuote) {
       return res.status(403).json({ message: "Forbidden: Vendor has no products in this quote" })
@@ -205,11 +224,24 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
   if (action === "final_accept" || (action === "accept" && !validVendorId)) {
     // A. Verify all vendors are resolved
     const quoteVendors = new Set<string>()
-    for (const item of draftOrder.items || []) {
-      if (!item || !item.product_id) continue
-      const { data: products } = await query.graph({ entity: "product", fields: ["id", "vendor.*"] })
-      const vId = products.find((p: any) => p.id === item.product_id)?.vendor?.id
-      if (vId) quoteVendors.add(vId)
+    const itemProductIds = draftOrder.items?.map((i: any) => i.product_id).filter(Boolean) || []
+    let productsMap = new Map<string, any>()
+    
+    if (itemProductIds.length > 0) {
+      const { data: products } = await query.graph({ 
+        entity: "product", 
+        fields: ["id", "vendor.*"],
+        filters: { id: itemProductIds },
+        pagination: { take: 100 }
+      })
+      products.forEach((p: any) => {
+        productsMap.set(p.id, p)
+        if (p.vendor?.id) {
+          quoteVendors.add(p.vendor.id)
+        } else {
+          quoteVendors.add("admin")
+        }
+      })
     }
 
     const vendorStatuses = (draftOrder.metadata?.vendor_statuses as any) || {}
@@ -230,8 +262,8 @@ export const POST = async (req: MedusaRequest, res: MedusaResponse) => {
       const itemsToZero: { id: string; quantity: number }[] = []
       for (const item of draftOrder.items || []) {
         if (!item || !item.product_id) continue
-        const { data: products } = await query.graph({ entity: "product", fields: ["id", "vendor.*"] })
-        const vId = products.find((p: any) => p.id === item.product_id)?.vendor?.id
+        const p = productsMap.get(item.product_id)
+        const vId = p?.vendor?.id || "admin"
         if (vId && rejectedVendors.has(vId)) {
           itemsToZero.push({ id: item.id, quantity: 0 })
         }

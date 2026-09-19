@@ -140,4 +140,10 @@ export class ShiprocketClient {
       body: JSON.stringify(payload)
     })
   }
+
+  public async trackAwb(awbCode: string): Promise<any> {
+    return this.request(`/courier/track/awb/${awbCode}`, {
+      method: "GET"
+    })
+  }
 }

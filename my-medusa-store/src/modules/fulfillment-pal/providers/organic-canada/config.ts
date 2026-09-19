@@ -18,6 +18,9 @@ export const organicCanadaConfig = {
     },
     shipstation: {
       status: (process.env.PAL_SHIPSTATION_STATUS || "NOT_CONFIGURED") as CarrierConnectionStatus,
+    },
+    shiprocket: {
+      status: (process.env.PAL_SHIPROCKET_STATUS || "NOT_CONFIGURED") as CarrierConnectionStatus,
     }
   }
 }

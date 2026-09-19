@@ -2,8 +2,10 @@ import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { Container, Heading, Text, Badge, Button, Input } from "@medusajs/ui"
 import { useEffect, useState, useRef } from "react"
 import { useParams, Link } from "react-router-dom"
+import { useVendorSidebar } from "../../../hooks/useVendorSidebar"
 
 const ShipmentDetailPage = () => {
+  useVendorSidebar()
   const { shipmentId } = useParams()
   const [shipment, setShipment] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -11,6 +13,11 @@ const ShipmentDetailPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [stepError, setStepError] = useState<any>(null)
   const [stepConfig, setStepConfig] = useState<any>({})
+  
+  const [availableCarriers, setAvailableCarriers] = useState<any[]>([])
+  const [selectedCarrierId, setSelectedCarrierId] = useState<string | null>(null)
+  const [simulating, setSimulating] = useState(false)
+  const [simulationResult, setSimulationResult] = useState<any>(null)
 
   const loadShipment = async () => {
     try {
@@ -26,6 +33,21 @@ const ShipmentDetailPage = () => {
       
       const data = await res.json()
       setShipment(data.shipment)
+      if (data.shipment.carrier) {
+        setSelectedCarrierId(data.shipment.carrier.toLowerCase())
+      }
+      
+      // Hydrate test booking state from persisted DB data
+      if (data.shipment.booking && data.shipment.booking.status === "BOOKED" && data.shipment.carrier === "shiprocket") {
+        const payload = data.shipment.booking.response_payload || {}
+        const isSimulated = payload.metadata?.simulated || payload.metadata?.bookingMode === "TEST"
+        if (isSimulated) {
+          setSimulationResult({ 
+            success: true, 
+            tracking: data.shipment.booking.trackingNumber 
+          })
+        }
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -36,6 +58,68 @@ const ShipmentDetailPage = () => {
   useEffect(() => {
     loadShipment()
   }, [shipmentId])
+
+  const loadProviders = async () => {
+    try {
+      const res = await fetch("/admin/pal/providers")
+      if (res.ok) {
+        const data = await res.json()
+        const carriers = data?.carriers || []
+        // We only show connected carriers. Currently the widget toggle strictly toggles between NOT_CONFIGURED and DISABLED. 
+        // If a carrier has status CONNECTED, it inherently cannot be disabled via UI.
+        const connected = carriers.filter((c: any) => c.status === "CONNECTED")
+        setAvailableCarriers(connected)
+      }
+    } catch (err) {
+      console.error("Failed to load providers", err)
+    }
+  }
+
+  useEffect(() => {
+    loadProviders()
+  }, [])
+
+  const handleCarrierChange = async (carrierId: string) => {
+    setSelectedCarrierId(carrierId)
+    try {
+      const res = await fetch(`/admin/oms/shipping/${shipmentId}/carrier`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ carrier: carrierId })
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        alert(errData.message || "Failed to persist carrier selection")
+      } else {
+        await loadShipment()
+      }
+    } catch (err) {
+      alert("Error saving carrier selection")
+    }
+  }
+
+  const handleSimulateBooking = async () => {
+    setSimulating(true)
+    setSimulationResult(null)
+    try {
+      const res = await fetch(`/admin/oms/shipping/${shipmentId}/booking`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "TEST" })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setSimulationResult({ success: true, tracking: data.details?.trackingNumber })
+        await loadShipment() // refresh status
+      } else {
+        setSimulationResult({ success: false, error: data.message || "Simulation failed" })
+      }
+    } catch (err: any) {
+      setSimulationResult({ success: false, error: err.message })
+    } finally {
+      setSimulating(false)
+    }
+  }
 
   const [docReqs, setDocReqs] = useState<any[]>([])
   const [docs, setDocs] = useState<any[]>([])
@@ -573,6 +657,66 @@ const ShipmentDetailPage = () => {
             )}
           </div>
         </div>
+      </Container>
+
+      <Container className="p-6 border bg-ui-bg-base rounded-lg flex flex-col gap-y-4">
+        <Heading level="h2">Select Carrier</Heading>
+        
+        {availableCarriers.length === 0 ? (
+          <Text className="text-sm text-ui-fg-subtle mt-2">
+            No connected carriers are available. Configure and test a carrier connection in PAL Provider Settings.
+          </Text>
+        ) : (
+          <div className="flex flex-col gap-y-3 mt-2">
+            {availableCarriers.map((c: any) => (
+              <div key={c.id} className="flex items-center gap-x-2">
+                <input
+                  type="radio"
+                  id={`carrier-${c.id}`}
+                  name="carrierSelection"
+                  value={c.id}
+                  checked={selectedCarrierId === c.id || (shipment?.carrier && shipment.carrier.toLowerCase() === c.id.toLowerCase())}
+                  onChange={() => handleCarrierChange(c.id)}
+                  className="cursor-pointer"
+                />
+                <label htmlFor={`carrier-${c.id}`} className="text-sm font-medium cursor-pointer">
+                  {c.name}
+                </label>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {selectedCarrierId === "shiprocket" && (
+          <div className="mt-4 pt-4 border-t flex flex-col gap-y-3 bg-ui-bg-subtle p-4 rounded-md">
+            <div className="flex justify-between items-center">
+              <div>
+                <Heading level="h3" className="text-sm font-bold">Simulate Booking (TEST)</Heading>
+                <Text className="text-xs text-ui-fg-subtle">
+                  Simulate a booking locally without calling live Shiprocket APIs.
+                </Text>
+              </div>
+              <Button 
+                variant="primary" 
+                size="small" 
+                onClick={handleSimulateBooking}
+                disabled={simulating || simulationResult?.success}
+              >
+                {simulating ? "Simulating..." : "Test Book Shipment"}
+              </Button>
+            </div>
+            
+            {simulationResult && (
+              <div className={`p-3 rounded-md text-sm font-medium ${simulationResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {simulationResult.success ? (
+                  <>Booking: TEST | Provider: Shiprocket | Status: BOOKED | Tracking: {simulationResult.tracking}</>
+                ) : (
+                  <>Error: {simulationResult.error}</>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </Container>
 
       <Container className="p-6 border bg-ui-bg-base rounded-lg flex flex-col gap-y-4">

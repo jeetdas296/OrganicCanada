@@ -373,8 +373,7 @@ export const QuoteNegotiation = ({ id }: QuoteNegotiationProps) => {
   const vendorStatuses = proposal?.metadata?.vendor_statuses || {}
   const vendorLastSender = proposal?.metadata?.vendor_last_sender || {}
   
-  const hasAdminProducts = proposal?.items?.some((item: any) => !item.vendor?.id)
-  const extendedVendorTabs = hasAdminProducts ? [{ id: "admin", name: "Main Admin" }, ...vendorTabs] : vendorTabs
+  const extendedVendorTabs = vendorTabs || []
 
   const allResolved = extendedVendorTabs.length > 0 && extendedVendorTabs.every(tab => {
     const st = vendorStatuses[tab.id]

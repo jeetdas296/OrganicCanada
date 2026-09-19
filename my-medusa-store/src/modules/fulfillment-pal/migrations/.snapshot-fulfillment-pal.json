@@ -3699,6 +3699,15 @@
           "expression": "CREATE INDEX IF NOT EXISTS \"IDX_pal_tracking_event_deleted_at\" ON \"pal_tracking_event\" (\"deleted_at\") WHERE deleted_at IS NULL"
         },
         {
+          "keyName": "IDX_pal_tracking_event_shipment_id_provider_event_id_unique",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "primary": false,
+          "unique": false,
+          "expression": "CREATE UNIQUE INDEX IF NOT EXISTS \"IDX_pal_tracking_event_shipment_id_provider_event_id_unique\" ON \"pal_tracking_event\" (\"shipment_id\", \"provider_event_id\") WHERE provider_event_id IS NOT NULL AND deleted_at IS NULL"
+        },
+        {
           "keyName": "pal_tracking_event_pkey",
           "columnNames": [
             "id"

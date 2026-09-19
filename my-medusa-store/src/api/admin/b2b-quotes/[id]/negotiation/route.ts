@@ -65,6 +65,11 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
           id: p.vendor.id,
           name: p.vendor.name || "Vendor"
         })
+      } else if (p) {
+        vendorTabsMap.set("admin", {
+          id: "admin",
+          name: "Organic Canada"
+        })
       }
     })
   }

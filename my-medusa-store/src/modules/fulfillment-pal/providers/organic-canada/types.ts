@@ -15,6 +15,6 @@ export interface ICarrierAdapter {
   getRates(context: ShipmentContext): Promise<ProviderRate[]>
   bookShipment(context: ShipmentContext): Promise<ProviderShipmentResult>
   cancelShipment(trackingNumber: string, metadata?: Record<string, unknown>): Promise<boolean>
-  getTracking(trackingNumber: string): Promise<any>
+  getTracking(trackingNumber: string, metadata?: Record<string, unknown>): Promise<any>
   testConnection?(): Promise<{ status: CarrierConnectionStatus, error?: string }>
 }

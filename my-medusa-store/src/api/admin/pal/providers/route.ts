@@ -2,6 +2,7 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { FULFILLMENT_PAL_MODULE } from "../../../../modules/fulfillment-pal"
 import { organicCanadaConfig } from "../../../../modules/fulfillment-pal/providers/organic-canada/config"
 import { DhlAdapter } from "../../../../modules/fulfillment-pal/providers/organic-canada/adapters/dhl"
+import { ShiprocketAdapter } from "../../../../modules/fulfillment-pal/providers/organic-canada/adapters/shiprocket"
 
 export const GET = async (
   req: MedusaRequest,
@@ -29,8 +30,16 @@ export const GET = async (
     provider = providers[0]
   }
 
+  // Merge any missing default carriers from config that aren't yet in the database configuration
+  // The database configuration always takes precedence.
+  const persistedCarriers = provider.configuration?.carriers || {}
+  const mergedCarriers = { 
+    ...organicCanadaConfig.carriers, 
+    ...persistedCarriers 
+  }
+
   // Sanitize the connection options to never return credentials/secrets
-  const sanitizedCarriers = Object.entries(provider.configuration?.carriers || {}).map(([id, config]: [string, any]) => {
+  const sanitizedCarriers = Object.entries(mergedCarriers).map(([id, config]: [string, any]) => {
     const cleanConfig = { ...config }
     if (cleanConfig.options) {
       delete cleanConfig.options.apiKey
@@ -101,6 +110,8 @@ export const POST = async (
         let AdapterClass: any = null
         if (id === "dhl") {
           AdapterClass = DhlAdapter
+        } else if (id === "shiprocket") {
+          AdapterClass = ShiprocketAdapter
         }
 
         if (AdapterClass) {

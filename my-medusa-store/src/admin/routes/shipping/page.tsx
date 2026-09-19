@@ -2,6 +2,7 @@ import { defineRouteConfig } from "@medusajs/admin-sdk"
 import { Container, Heading, Table, Badge } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
+import { useVendorSidebar } from "../../hooks/useVendorSidebar"
 
 const formatMoney = (amount: number, currencyCode: string = "USD") => {
   try {
@@ -15,6 +16,7 @@ const formatMoney = (amount: number, currencyCode: string = "USD") => {
 }
 
 const ShippingPage = () => {
+  useVendorSidebar()
   const [shipments, setShipments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 

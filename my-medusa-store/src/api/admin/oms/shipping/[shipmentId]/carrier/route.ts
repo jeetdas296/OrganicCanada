@@ -57,7 +57,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const registry = new ProviderRegistry()
   
   const dbProviders = await (palService as any).listPalProviders({ code: "ORGANIC_CANADA" })
-  const dhlConfig = dbProviders[0]?.configuration?.carriers?.dhl || { status: "NOT_CONFIGURED" }
+  const organicProvider = dbProviders.find((p: any) => p.code === "ORGANIC_CANADA") || dbProviders[0]
+  const carriersConfig = organicProvider?.configuration?.carriers || {}
+
+  const dhlConfig = carriersConfig.dhl || { status: "NOT_CONFIGURED" }
+  const shiprocketConfig = carriersConfig.shiprocket || { status: "NOT_CONFIGURED" }
 
   registry.register({
     id: "dhl",
@@ -79,6 +83,26 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     } as any
   })
 
+  registry.register({
+    id: "shiprocket",
+    code: "SHIPROCKET",
+    name: "Shiprocket",
+    priority: 2,
+    capabilities: {
+      transportModes: ["PARCEL"],
+      domestic: true,
+      crossBorder: false,
+      rating: true,
+      booking: true,
+      tracking: true,
+      label: true,
+      customs: false
+    },
+    adapter: {
+      status: shiprocketConfig.status
+    } as any
+  })
+
   const provider = registry.getProvider(carrierId)
   if (!provider) {
     return res.status(400).json({ message: `Carrier ${carrierId} not recognized in PAL registry` })
@@ -90,14 +114,14 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 
   if (shipment.trade_type === "DOMESTIC" && !provider.capabilities.domestic) {
-    return res.status(400).json({ message: `Carrier ${carrierId} does not support domestic trade` })
+    return res.status(400).json({ code: "PROVIDER_CAPABILITY_MISMATCH", message: `Provider: ${carrierId}. Trade Type: DOMESTIC. Supported capabilities do not match.` })
   }
   if (shipment.trade_type === "CROSS_BORDER" && !provider.capabilities.crossBorder) {
-    return res.status(400).json({ message: `Carrier ${carrierId} does not support cross-border trade` })
+    return res.status(400).json({ code: "PROVIDER_CAPABILITY_MISMATCH", message: `Provider: ${carrierId}. Trade Type: CROSS_BORDER. Supported: DOMESTIC only.` })
   }
   
   if (shipment.transport_mode && !provider.capabilities.transportModes.includes(shipment.transport_mode as any)) {
-    return res.status(400).json({ message: `Carrier ${carrierId} does not support transport mode ${shipment.transport_mode}` })
+    return res.status(400).json({ code: "PROVIDER_CAPABILITY_MISMATCH", message: `Provider: ${carrierId}. Transport Mode: ${shipment.transport_mode}. Supported capabilities do not match.` })
   }
 
   await (palService as any).updatePalShipments({

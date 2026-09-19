@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { FULFILLMENT_PAL_MODULE } from "../../../../../modules/fulfillment-pal"
 
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
@@ -74,12 +74,33 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     return res.status(404).json({ message: "Associated order not found" })
   }
 
+  // Fetch the fulfillment associated with the shipment to find specific items
+  let fulfillmentItemIds: string[] = []
+  if (shipment.external_reference) {
+    try {
+      const fulfillmentModuleService = req.scope.resolve(Modules.FULFILLMENT) as any
+      const fulfillments = await fulfillmentModuleService.listFulfillments(
+        { id: shipment.external_reference }, 
+        { relations: ["items"] }
+      )
+      const fulfillment = fulfillments[0]
+      fulfillmentItemIds = fulfillment?.items?.map((fi: any) => fi.line_item_id || fi.item_id) || []
+    } catch (err) {
+      console.error(`Failed to fetch fulfillment ${shipment.external_reference} from FulfillmentModuleService:`, err)
+      // Log appropriately but allow response mapping to continue with empty items
+    }
+  }
+
   const orderItems = order.items || []
-  let authorizedItems = orderItems
+  
+  // The items actually present in this PAL shipment
+  const shipmentOrderItems = orderItems.filter((i: any) => fulfillmentItemIds.includes(i.id))
+  
+  let authorizedItems = shipmentOrderItems
 
   // Vendor Authorization based on actual item vendors
   if (activeVendorId) {
-    authorizedItems = orderItems.filter((item: any) => {
+    authorizedItems = shipmentOrderItems.filter((item: any) => {
       const itemVendorId = item?.variant?.product?.vendor?.id || "platform_direct"
       return itemVendorId === activeVendorId
     })
@@ -124,7 +145,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   try {
     const { data: bkgs } = await query.graph({
       entity: "pal_provider_booking",
-      fields: ["id", "status", "created_at"],
+      fields: ["id", "status", "external_booking_id", "response_payload", "created_at"],
       filters: { shipment_id: shipmentId }
     })
     bookings = bkgs
@@ -169,6 +190,12 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
       provider: "organic_canada",
       carrier: shipment.selected_provider_id || null, // DHL, FedEx, etc.
       booking_status: bookingStatus,
+      booking: latestBooking ? {
+        id: latestBooking.id,
+        status: latestBooking.status,
+        trackingNumber: latestBooking.external_booking_id,
+        response_payload: latestBooking.response_payload
+      } : null,
       origin: "Toronto, CA", // Usually resolved via addresses
       destination: "New York, US",
       timeline: timeline

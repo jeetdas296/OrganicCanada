@@ -1,11 +1,12 @@
 import { defineWidgetConfig } from "@medusajs/admin-sdk"
-import { Container, Heading, Text, Badge, Switch, Table } from "@medusajs/ui"
+import { Container, Heading, Text, Badge, Switch, Table, Button } from "@medusajs/ui"
 import { useEffect, useState } from "react"
 
 const PalProvidersWidget = () => {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testingId, setTestingId] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
 
   const loadData = () => {
@@ -90,6 +91,37 @@ const PalProvidersWidget = () => {
       })
   }
 
+  const handleTestConnection = (carrierId: string) => {
+    if (testingId) return // Prevent double clicks
+    
+    setTestingId(carrierId)
+    setErrorMsg("")
+    
+    fetch("/admin/pal/providers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        configuration: {
+          carriers: {
+            [carrierId]: { action: "test", options: {} }
+          }
+        }
+      })
+    })
+      .then(res => {
+        if (!res.ok) return res.json().then(e => { throw e })
+        return res.json()
+      })
+      .then(() => {
+        loadData()
+        setTestingId(null)
+      })
+      .catch(err => {
+        setErrorMsg(err.message || `Failed to test connection for ${carrierId}`)
+        setTestingId(null)
+      })
+  }
+
   return (
     <Container className="p-6">
       <Heading className="mb-4">PAL Fulfillment Providers</Heading>
@@ -124,6 +156,7 @@ const PalProvidersWidget = () => {
             <Table.HeaderCell>Carrier</Table.HeaderCell>
             <Table.HeaderCell>Connection Status</Table.HeaderCell>
             <Table.HeaderCell>Active</Table.HeaderCell>
+            <Table.HeaderCell>Actions</Table.HeaderCell>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -141,6 +174,19 @@ const PalProvidersWidget = () => {
                   disabled={saving || c.status === "CONNECTED"}
                   onCheckedChange={() => handleCarrierToggle(c.id, c.status)}
                 />
+              </Table.Cell>
+              <Table.Cell>
+                {(c.id === "shiprocket" || c.id === "dhl") && (
+                  <Button 
+                    size="small" 
+                    variant="secondary"
+                    onClick={() => handleTestConnection(c.id)}
+                    disabled={testingId !== null}
+                    isLoading={testingId === c.id}
+                  >
+                    {testingId === c.id ? "Testing..." : "Test Connection"}
+                  </Button>
+                )}
               </Table.Cell>
             </Table.Row>
           ))}

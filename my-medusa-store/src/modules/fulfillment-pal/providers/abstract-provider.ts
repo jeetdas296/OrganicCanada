@@ -41,9 +41,9 @@ export abstract class AbstractPalProviderAdapter implements IPalProviderAdapter 
     }
   }
 
-  public async getTracking(trackingNumber: string): Promise<any> {
+  public async getTracking(trackingNumber: string, metadata?: Record<string, unknown>): Promise<ProviderTrackingResult | any> {
     try {
-      return await this.fetchTracking(trackingNumber)
+      return await this.fetchTracking(trackingNumber, metadata)
     } catch (error: any) {
       this.handleError("getTracking", error)
       return null
@@ -54,7 +54,7 @@ export abstract class AbstractPalProviderAdapter implements IPalProviderAdapter 
   protected abstract fetchRates(context: ShipmentContext): Promise<ProviderRate[]>
   protected abstract bookShipment(context: ShipmentContext): Promise<ProviderShipmentResult>
   protected abstract voidShipment(trackingNumber: string): Promise<boolean>
-  protected abstract fetchTracking(trackingNumber: string): Promise<any>
+  protected abstract fetchTracking(trackingNumber: string, metadata?: Record<string, unknown>): Promise<ProviderTrackingResult | any>
 
   protected handleError(operation: string, error: any): void {
     // Standardize error logging or metrics reporting

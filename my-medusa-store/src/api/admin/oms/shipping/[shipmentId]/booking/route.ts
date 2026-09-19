@@ -45,21 +45,53 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return res.status(404).json({ message: "Shipment not found" })
   }
 
+  const { data: orders } = await query.graph({
+    entity: "order",
+    fields: [
+      "id",
+      "currency_code",
+      "items.*",
+      "items.detail.*",
+      "items.variant.product.vendor.*"
+    ],
+    filters: { id: shipment.order_id }
+  })
+  
+  const order = orders[0]
+  if (!order) {
+    return res.status(404).json({ message: "Associated order not found" })
+  }
+
+  const orderItems = order.items || []
+  let authorizedItems = orderItems
+
   if (activeVendorId) {
-    const { data: orders } = await query.graph({
-      entity: "order",
-      fields: ["items.variant.product.vendor.id"],
-      filters: { id: shipment.order_id }
+    authorizedItems = orderItems.filter((item: any) => {
+      const itemVendorId = item?.variant?.product?.vendor?.id || "platform_direct"
+      return itemVendorId === activeVendorId
     })
-    const vendorItems = (orders[0]?.items || []).filter((i: any) => (i?.variant?.product?.vendor?.id || "platform_direct") === activeVendorId)
-    if (vendorItems.length === 0) {
+    
+    if (authorizedItems.length === 0) {
       return res.status(403).json({ message: "Unauthorized" })
     }
   }
 
+  const body = req.body as any
+  const mode = body?.mode // Optional, defaults to undefined
+
   const carrierId = shipment.selected_provider_id
   if (!carrierId) {
-    return res.status(400).json({ message: "No carrier selected for this shipment yet." })
+    return res.status(400).json({ message: "PROVIDER_NOT_CONFIGURED" })
+  }
+
+  if (carrierId === "shiprocket") {
+    if (mode !== "TEST") {
+      return res.status(400).json({ message: "REAL booking mode is explicitly blocked for Shiprocket in this phase. Use mode: 'TEST'." })
+    }
+  }
+
+  if (mode === "TEST" && carrierId !== "shiprocket") {
+    return res.status(400).json({ message: "INVALID_PROVIDER: Test booking is only supported for Shiprocket in this phase." })
   }
 
   // 2. Fetch Packages
@@ -88,30 +120,44 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       height: Number(p.height) || 10,
       quantity: Number(p.quantity) || 1
     })),
+    items: authorizedItems.map((item: any) => ({
+      id: item.id,
+      productId: item?.variant?.product?.id,
+      variantId: item.variant_id,
+      quantity: Number(item.quantity || 1),
+      unitValue: Number(item.unit_price || 0),
+      totalValue: Number(item.unit_price || 0) * Number(item.quantity || 1),
+      currency: order.currency_code || "CAD",
+      weight: item?.variant?.weight ? Number(item.variant.weight) : undefined,
+      hsCode: item?.variant?.hs_code,
+      countryOfOrigin: item?.variant?.origin_country,
+      description: item.title
+    })),
     metadata: {
       selected_service_id: shipment.selected_service_id,
-      preferredProviders: [carrierId] // Force the router to select this carrier
+      preferredProviders: [carrierId], // Force the router to select this carrier
+      bookingMode: mode
     }
   }
 
   const dbProviders = await (palService as any).listPalProviders({ code: "ORGANIC_CANADA" })
-  const dbProviderId = dbProviders[0]?.id
+  const organicProvider = dbProviders.find((p: any) => p.code === "ORGANIC_CANADA") || dbProviders[0]
+  const dbProviderId = organicProvider?.id
 
-  const provider = new OrganicCanadaProviderService()
+  const provider = new OrganicCanadaProviderService(organicProvider?.configuration || {})
   // Wait, we need to explicitly book using the actual route method we wrote in OrganicCanadaProviderService
   // Since bookShipment is protected in AbstractPalProviderAdapter, we can either call the Carrier directly
   // or expose it. Let's get the carrier directly.
   const carrier = provider.routeCarrier(context)
 
   if (!carrier || carrier.getIdentifier() !== carrierId) {
-    return res.status(400).json({ message: `Carrier ${carrierId} is not available or configured properly.` })
+    return res.status(400).json({ code: "PROVIDER_CAPABILITY_MISMATCH", message: `Provider capability does not support this shipment's parameters (e.g., cross-border). Provider: ${carrierId}. Trade Type: ${context.tradeType}.` })
   }
 
   // IDEMPOTENCY CHECK
-  const { data: existingBookings } = await query.graph({
-    entity: "pal_provider_booking",
-    fields: ["*"],
-    filters: { shipment_id: shipment.id, status: "BOOKED" }
+  const existingBookings = await (palService as any).listPalProviderBookings({
+    shipment_id: shipment.id,
+    status: "BOOKED"
   })
   
   if (existingBookings && existingBookings.length > 0) {
@@ -151,7 +197,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     responsePayload = { 
       cost: bookingResult?.cost, 
       trackingNumber: bookingResult?.trackingNumber,
-      labels: bookingResult?.labels
+      labels: bookingResult?.labels,
+      metadata: bookingResult?.metadata
     }
   } catch (error: any) {
     console.error("Booking failed:", error.message)
@@ -191,6 +238,15 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
                 normalizedError.field = firstDetail.source || null
             }
         }
+      } else if (
+        error.message?.includes("INVALID_SHIPMENT") || 
+        error.message?.includes("UNSUPPORTED") || 
+        error.message?.includes("INVALID_PROVIDER") ||
+        error.message?.includes("PAYMENT_MODE_NOT_SUPPORTED")
+      ) {
+        normalizedError.status = 400
+        normalizedError.code = "BAD_REQUEST"
+        normalizedError.message = error.message
       } else {
         normalizedError.message = error.message
       }

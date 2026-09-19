@@ -1,16 +1,20 @@
-import { ProviderRate, ProviderShipmentResult } from "../../../provider-interface"
+import { ProviderRate, ProviderShipmentResult, ProviderTrackingResult } from "../../../provider-interface"
 import { ICarrierAdapter, CarrierConnectionStatus } from "../../types"
 import { ShipmentContext } from "../../../../types"
 import { ShiprocketClient, ShiprocketApiError } from "./client"
+import { ShiprocketStatusMapper } from "./mapper"
 import { loadShiprocketConfig, isShiprocketConfigured } from "./config"
+import { ShiprocketTestBookingExecutor } from "./test-booking"
 
 export class ShiprocketAdapter implements ICarrierAdapter {
   private client: ShiprocketClient
   public status: CarrierConnectionStatus = "NOT_CONFIGURED"
+  private testExecutor: ShiprocketTestBookingExecutor
 
   constructor(options?: any) {
     const config = loadShiprocketConfig(options)
     this.client = new ShiprocketClient(config)
+    this.testExecutor = new ShiprocketTestBookingExecutor()
     
     if (isShiprocketConfigured(config)) {
       this.status = "CONNECTED"
@@ -110,6 +114,10 @@ export class ShiprocketAdapter implements ICarrierAdapter {
   }
 
   async bookShipment(context: ShipmentContext): Promise<ProviderShipmentResult> {
+    if (context.metadata?.bookingMode === "TEST") {
+      return this.testExecutor.execute(context)
+    }
+
     this.requireConfigured()
 
     // 1. Payment Mode Validation
@@ -263,7 +271,18 @@ export class ShiprocketAdapter implements ICarrierAdapter {
     }
   }
 
-  async getTracking(trackingNumber: string): Promise<any> {
-    throw new Error("ShiprocketAdapter.getTracking NOT_IMPLEMENTED (Phase C)")
+  async getTracking(trackingNumber: string, metadata?: Record<string, unknown>): Promise<ProviderTrackingResult> {
+    this.requireConfigured()
+    try {
+      // Typically Shiprocket tracks by AWB. If the trackingNumber passed is the AWB, we use it directly.
+      // Alternatively, we use metadata.shiprocket_awb_code.
+      const awbToTrack = metadata?.shiprocket_awb_code ? String(metadata.shiprocket_awb_code) : trackingNumber
+      
+      const payload = await this.client.trackAwb(awbToTrack)
+      return ShiprocketStatusMapper.normalizeTrackingResponse(awbToTrack, payload)
+    } catch (err: any) {
+      console.error(`[PAL][Shiprocket] Failed to get tracking for ${trackingNumber}:`, err.message)
+      throw err
+    }
   }
 }

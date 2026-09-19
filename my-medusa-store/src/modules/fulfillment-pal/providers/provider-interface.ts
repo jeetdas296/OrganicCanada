@@ -16,6 +16,21 @@ export interface ProviderShipmentResult {
   metadata?: Record<string, unknown>
 }
 
+export interface ProviderTrackingEvent {
+  occurredAt: Date
+  status: string
+  description?: string
+  location?: string
+}
+
+export interface ProviderTrackingResult {
+  trackingNumber: string
+  provider: string
+  currentStatus: string
+  events: ProviderTrackingEvent[]
+  raw?: Record<string, unknown>
+}
+
 export interface IPalProviderAdapter {
   getIdentifier(): string
   
@@ -25,5 +40,5 @@ export interface IPalProviderAdapter {
   
   cancelShipment(trackingNumber: string): Promise<boolean>
   
-  getTracking(trackingNumber: string): Promise<any>
+  getTracking(trackingNumber: string, metadata?: Record<string, unknown>): Promise<ProviderTrackingResult | any>
 }

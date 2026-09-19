@@ -2,7 +2,19 @@ import { OrganicCanadaProviderService } from "../../providers/organic-canada"
 import { ShipmentContext } from "../../types"
 
 describe("OMS Vendor Boundaries and Fulfillment Overrides", () => {
+  let originalEnv: NodeJS.ProcessEnv
   let adapter: OrganicCanadaProviderService
+
+  beforeAll(() => {
+    originalEnv = process.env
+    process.env = { ...originalEnv }
+    delete process.env.SHIPROCKET_API_EMAIL
+    delete process.env.SHIPROCKET_API_PASSWORD
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
+  })
 
   beforeEach(() => {
     // Setup typical provider adapter

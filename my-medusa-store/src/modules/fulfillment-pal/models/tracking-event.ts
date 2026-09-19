@@ -18,4 +18,10 @@ export const PalTrackingEvent = model.define("pal_tracking_event", {
   event_at: model.dateTime(),
   
   raw_payload: model.json().nullable(),
-})
+}).indexes([
+  {
+    on: ["shipment_id", "provider_event_id"],
+    unique: true,
+    where: "provider_event_id IS NOT NULL",
+  }
+])

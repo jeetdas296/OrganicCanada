@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { FULFILLMENT_PAL_MODULE } from "../../../../../../../modules/fulfillment-pal"
 import { getRequiredDocuments } from "../../../../../../../modules/fulfillment-pal/core/document-requirements"
 
@@ -82,6 +82,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       "transport_mode",
       "incoterm",
       "trade_classifier",
+      "external_reference",
       "timelines.*",
       "timelines.steps.*"
     ],
@@ -97,11 +98,30 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   if (activeVendorId) {
     const { data: orders } = await query.graph({
       entity: "order",
-      fields: ["items.variant.product.vendor.id"],
+      fields: ["id", "items.*", "items.variant.product.vendor.id"],
       filters: { id: shipment.order_id }
     })
+    
+    let fulfillmentItemIds: string[] = []
+    if ((shipment as any).external_reference) {
+      try {
+        const fulfillmentModuleService = req.scope.resolve(Modules.FULFILLMENT) as any
+        const fulfillments = await fulfillmentModuleService.listFulfillments(
+          { id: (shipment as any).external_reference }, 
+          { relations: ["items"] }
+        )
+        const fulfillment = fulfillments[0]
+        fulfillmentItemIds = fulfillment?.items?.map((fi: any) => fi.line_item_id || fi.item_id) || []
+      } catch (err) {
+        console.error(`Failed to fetch fulfillment ${(shipment as any).external_reference} from FulfillmentModuleService for timeline auth:`, err)
+        // Let it fall through, the items will remain empty array
+      }
+    }
+    
     const orderItems = orders[0]?.items || []
-    const vendorItems = orderItems.filter((i: any) => (i?.variant?.product?.vendor?.id || "platform_direct") === activeVendorId)
+    const shipmentOrderItems = orderItems.filter((i: any) => fulfillmentItemIds.includes(i.id))
+    
+    const vendorItems = shipmentOrderItems.filter((i: any) => (i?.variant?.product?.vendor?.id || "platform_direct") === activeVendorId)
     if (vendorItems.length === 0) {
       return res.status(403).json({ message: "Unauthorized" })
     }
@@ -128,6 +148,14 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   // Validate Configuration
   const validation = validateStepConfiguration(stepCode, configuration)
   if (!validation.valid) {
+    if (stepCode === "CUSTOMS_PREPARATION") {
+      if (validation.error === "Missing required field: hs_code") {
+        return res.status(400).json({ code: "MISSING_HS_CODE", message: validation.error })
+      }
+      if (validation.error === "Missing required field: incoterm") {
+        return res.status(400).json({ code: "MISSING_INCOTERM", message: validation.error })
+      }
+    }
     return res.status(400).json({ message: validation.error })
   }
 

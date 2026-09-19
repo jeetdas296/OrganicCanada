@@ -101,7 +101,10 @@ describe("Shiprocket Phase B Integration Fixes", () => {
       id: "booking_1",
       external_booking_id: "AWB999",
       response_payload: {
-        metadata: { shiprocket_order_id: 999 }
+        metadata: { 
+          shiprocket_order_id: 999,
+          carrier_id: "shiprocket"
+        }
       }
     }])
 

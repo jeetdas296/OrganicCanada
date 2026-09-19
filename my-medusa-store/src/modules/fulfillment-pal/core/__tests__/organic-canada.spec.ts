@@ -16,6 +16,19 @@ import { createContainer, asValue } from "awilix"
 import { GET, POST } from "../../../../api/admin/pal/providers/route"
 
 describe("Organic Canada Provider", () => {
+  let originalEnv: NodeJS.ProcessEnv
+
+  beforeAll(() => {
+    originalEnv = process.env
+    process.env = { ...originalEnv }
+    delete process.env.SHIPROCKET_API_EMAIL
+    delete process.env.SHIPROCKET_API_PASSWORD
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
+  })
+
   describe("Derived Capabilities & Carrier Routing", () => {
     it("returns all PAL capabilities independently of carrier configuration status", () => {
       const provider = new OrganicCanadaProviderService({

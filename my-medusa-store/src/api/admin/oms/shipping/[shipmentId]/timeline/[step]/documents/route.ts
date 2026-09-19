@@ -4,6 +4,39 @@ import fs from "fs"
 import { getRequiredDocuments, DocumentRequirementParams } from "../../../../../../../../modules/fulfillment-pal/core/document-requirements"
 import { FULFILLMENT_PAL_MODULE } from "../../../../../../../../modules/fulfillment-pal"
 
+async function checkVendorAuthorization(query: any, actorId: string | undefined, shipment: any): Promise<{ authorized: boolean; activeVendorId: string | null }> {
+  if (!actorId) return { authorized: true, activeVendorId: null }
+
+  let activeVendorId: string | null = null
+  try {
+    const { data: users } = await query.graph({
+      entity: "user",
+      fields: ["id", "vendor.*"],
+      filters: { id: actorId }
+    })
+    activeVendorId = users[0]?.vendor?.id || null
+  } catch (e) { }
+
+  if (!activeVendorId) return { authorized: true, activeVendorId: null }
+
+  if (!shipment.order_id) return { authorized: true, activeVendorId }
+
+  try {
+    const { data: orders } = await query.graph({
+      entity: "order",
+      fields: ["id", "items.variant.product.vendor.id"],
+      filters: { id: shipment.order_id }
+    })
+    const orderItems = orders[0]?.items || []
+    const vendorItems = orderItems.filter((i: any) => (i?.variant?.product?.vendor?.id || "platform_direct") === activeVendorId)
+    if (vendorItems.length === 0) {
+      return { authorized: false, activeVendorId }
+    }
+  } catch (e) { }
+
+  return { authorized: true, activeVendorId }
+}
+
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const { shipmentId, step } = req.params
 
@@ -11,13 +44,20 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     const query = req.scope.resolve("query")
     const { data: shipments } = await query.graph({
       entity: "pal_shipment",
-      fields: ["id", "order_type", "transport_mode", "incoterm", "trade_classifier", "timelines.*", "timelines.steps.*"],
+      fields: ["id", "order_id", "order_type", "transport_mode", "incoterm", "trade_classifier", "timelines.*", "timelines.steps.*"],
       filters: { id: shipmentId },
     })
 
     const shipment = shipments[0]
     if (!shipment) {
       return res.status(404).json({ success: false, message: "Shipment not found" })
+    }
+
+    // Check Vendor Authorization
+    const actorId = (req as any).auth_context?.actor_id
+    const { authorized } = await checkVendorAuthorization(query, actorId, shipment)
+    if (!authorized) {
+      return res.status(403).json({ success: false, message: "Vendor not authorized for this shipment" })
     }
 
     const timelineStep = shipment.timelines?.[0]?.steps?.find((s: any) => s.step_code === step)
@@ -61,13 +101,20 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     const query = req.scope.resolve("query")
     const { data: shipments } = await query.graph({
       entity: "pal_shipment",
-      fields: ["id", "timelines.*", "timelines.steps.*"],
+      fields: ["id", "order_id", "timelines.*", "timelines.steps.*"],
       filters: { id: shipmentId },
     })
 
     const shipment = shipments[0]
     if (!shipment) {
       return res.status(404).json({ success: false, message: "Shipment not found" })
+    }
+
+    // Check Vendor Authorization
+    const actorId = (req as any).auth_context?.actor_id
+    const { authorized } = await checkVendorAuthorization(query, actorId, shipment)
+    if (!authorized) {
+      return res.status(403).json({ success: false, message: "Vendor not authorized for this shipment" })
     }
 
     const timelineStep = shipment.timelines?.[0]?.steps?.find((s: any) => s.step_code === step)

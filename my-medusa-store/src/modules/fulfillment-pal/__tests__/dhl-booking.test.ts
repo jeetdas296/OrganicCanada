@@ -32,7 +32,8 @@ describe("DHL Booking Route - Idempotency & Error Normalization", () => {
     }
 
     mockPalService = {
-      listPalProviders: jest.fn().mockResolvedValue([{ id: "prov-1" }]),
+      listPalProviders: jest.fn().mockResolvedValue([{ id: "prov_1" }]),
+      listPalProviderBookings: jest.fn().mockResolvedValue([]),
       createPalProviderBookings: jest.fn().mockResolvedValue({}),
       updatePalShipmentTimelineSteps: jest.fn().mockResolvedValue({})
     }
@@ -73,11 +74,13 @@ describe("DHL Booking Route - Idempotency & Error Normalization", () => {
       if (args.entity === "pal_package") {
         return { data: [] }
       }
-      if (args.entity === "pal_provider_booking") {
-        return { data: [] } // default no existing booking
+      if (args.entity === "order") {
+        return { data: [{ id: "order-1", items: [] }] }
       }
       return { data: [] }
     })
+    
+    mockPalService.listPalProviderBookings.mockResolvedValue([])
   })
 
   it("A. First DHL Booking - calls DHL and persists booking", async () => {
@@ -108,11 +111,16 @@ describe("DHL Booking Route - Idempotency & Error Normalization", () => {
           }]
         }
       }
-      if (args.entity === "pal_provider_booking") {
-        return { data: [{ status: "BOOKED", response_payload: { trackingNumber: "OLD_AWB" } }] }
+      if (args.entity === "order") {
+        return { data: [{ id: "order-1", items: [] }] }
       }
       return { data: [] }
     })
+    
+    mockPalService.listPalProviderBookings.mockResolvedValue([{ 
+      status: "BOOKED", 
+      response_payload: { trackingNumber: "OLD_AWB" } 
+    }])
 
     await POST(mockReq, mockRes)
 
@@ -134,6 +142,9 @@ describe("DHL Booking Route - Idempotency & Error Normalization", () => {
             timelines: [{ steps: [{ id: "step-1", step_code: "BOOKING", status: "IN_PROGRESS" }] }] // In progress!
           }]
         }
+      }
+      if (args.entity === "order") {
+        return { data: [{ id: "order-1", items: [] }] }
       }
       return { data: [] }
     })

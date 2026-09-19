@@ -29,6 +29,26 @@ export const retrieveOrder = async (id: string) => {
     .catch((err) => medusaError(err))
 }
 
+export const retrieveOrderTracking = async (id: string) => {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  const next = {
+    tags: ["orders"], // Dynamic fetch to reflect live admin tracking updates
+  }
+
+  return sdk.client
+    .fetch<any>(`/store/orders/${id}/tracking`, {
+      method: "GET",
+      headers,
+      next,
+      cache: "no-store", // We want the latest tracking timeline whenever viewed
+    })
+    .then((data) => data)
+    .catch((err) => medusaError(err))
+}
+
 export const listOrders = async (
   limit: number = 100,
   offset: number = 0,

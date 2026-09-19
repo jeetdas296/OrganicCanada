@@ -2,6 +2,7 @@ import Link from "next/link";
 import { convertToLocale } from "@lib/util/money";
 import DigitalDownloadsWidget from "@modules/order/components/digital-downloads";
 import LocalizedClientLink from "@modules/common/components/localized-client-link";
+import OrderTrackingWidget from "./OrderTrackingWidget";
 
 export default function OrderHistory({
   orders,
@@ -124,6 +125,7 @@ export default function OrderHistory({
               <div className="mt-4">
                 <DigitalDownloadsWidget orderId={order.id} />
               </div>
+              <OrderTrackingWidget orderId={order.id} />
             </div>
           </div>
         );
