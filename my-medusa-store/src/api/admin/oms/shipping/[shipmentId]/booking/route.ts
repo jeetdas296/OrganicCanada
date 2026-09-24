@@ -1,5 +1,5 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import { FULFILLMENT_PAL_MODULE } from "../../../../../../modules/fulfillment-pal"
 import { OrganicCanadaProviderService } from "../../../../../../modules/fulfillment-pal/providers/organic-canada/service"
 
@@ -277,6 +277,14 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       configuration: { booking: responsePayload },
       completed_at: status === "BOOKED" ? new Date() : null
     })
+
+    if (status === "BOOKED") {
+      const eventBus = req.scope.resolve(Modules.EVENT_BUS)
+      await eventBus.emit({
+        name: "pal.timeline_step.completed",
+        data: { shipmentId: shipment.id, stepCode: bookingStep.step_code }
+      })
+    }
   }
 
   return res.json({ success: true, status, details: responsePayload })

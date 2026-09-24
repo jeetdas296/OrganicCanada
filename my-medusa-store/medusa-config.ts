@@ -1,5 +1,6 @@
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 import { B2B_MODULE } from "./src/modules/b2b"
+import { CUSTOMER_NOTIFICATION_MODULE } from "./src/modules/customer-notification"
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
 // --- PRE-DEPLOYMENT SECURITY CHECKS ---
@@ -100,6 +101,10 @@ module.exports = defineConfig({
     {
       resolve: "./src/modules/b2b",
       key: B2B_MODULE,
+    },
+    {
+      resolve: "./src/modules/customer-notification",
+      key: CUSTOMER_NOTIFICATION_MODULE,
     },
     // 🏪 7. The POS Module
     {

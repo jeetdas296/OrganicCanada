@@ -7,6 +7,7 @@ import { StoreRegion } from "@medusajs/types"
 import LocalizedClientLink from "@modules/common/components/localized-client-link"
 import CartButton from "@modules/layout/components/cart-button"
 import SideMenu from "@modules/layout/components/side-menu"
+import NotificationWrapper from "@modules/layout/components/notification-wrapper"
 
 export default async function Nav() {
   const [regions, locales, currentLocale] = await Promise.all([
@@ -45,6 +46,9 @@ export default async function Nav() {
                 Account
               </LocalizedClientLink>
             </div>
+            <Suspense fallback={null}>
+              <NotificationWrapper />
+            </Suspense>
             <Suspense
               fallback={
                 <LocalizedClientLink

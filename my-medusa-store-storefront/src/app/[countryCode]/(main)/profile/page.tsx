@@ -90,10 +90,13 @@ export default async function ProfilePage(props: { params: Promise<{ countryCode
                     <i className="icofont-heart me-2"></i> WishList
                   </Link>
                   <Link href={`/${countryCode}/subscriptions`} className="list-group-item list-group-item-action">
-                    <i className="icofont-ui-calendar"></i> Subscriptions
+                    <i className="icofont-ui-calendar me-2"></i> Subscriptions
                   </Link>
                   <Link href={`/${countryCode}/promos`} className="list-group-item list-group-item-action">
                     <i className="icofont-sale-discount me-2"></i> My Promos
+                  </Link>
+                  <Link href={`/${countryCode}/notifications`} className="list-group-item list-group-item-action">
+                    <i className="icofont-notification me-2"></i> Notifications
                   </Link>
                   {/* <Link href="#ChangePassword" className="list-group-item list-group-item-action">
                     <i className="icofont-lock me-2"></i> Reset Password

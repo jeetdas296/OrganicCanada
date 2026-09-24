@@ -9,11 +9,11 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // 🟢 1. Create states for email management and rememberMe status
   const [email, setEmail] = useState(rememberedEmail || "");
   const [rememberMe, setRememberMe] = useState(!!rememberedEmail);
-  
+
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -29,19 +29,19 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
     try {
       if (view === "forgot") {
         const errorMsg = await requestPasswordReset(email);
-        
+
         if (errorMsg) {
           setError(errorMsg);
         } else {
           setSuccessMsg("If an account exists with that email, a reset link has been sent.");
-          setTimeout(() => setView("login"), 5000); 
+          setTimeout(() => setView("login"), 5000);
         }
       } else if (view === "login") {
         // 🟢 3. Handle rememberMe validation on successful submission pathing
         await setRememberMeCookie(rememberMe ? email : null);
 
         const response = await login(null, formData);
-        
+
         if (typeof response === "string") {
           setError(response);
         } else if (response && response.error) {
@@ -53,11 +53,11 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
       } else {
         // Handle Registration
         const response = await signup(null, formData);
-        
+
         if (typeof response === "string") {
           setError(response);
         } else if (response && response.error) {
-           setError(response.error.message || response.error);
+          setError(response.error.message || response.error);
         } else {
           window.location.href = `/${countryCode}/profile`;
         }
@@ -71,13 +71,13 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
 
   return (
     <div className="bg-white rounded-4 shadow-sm p-4 p-md-5 border">
-      
+
       {/* TABS */}
       {view !== "forgot" && (
         <ul className="nav nav-pills nav-justified mb-4" role="tablist">
           <li className="nav-item" role="presentation">
-            <button 
-              className={`nav-link fw-bold ${view === "login" ? "active bg-success" : "text-dark"}`} 
+            <button
+              className={`nav-link fw-bold ${view === "login" ? "active bg-success" : "text-dark"}`}
               onClick={() => { setView("login"); setError(""); setSuccessMsg(""); }}
               type="button"
             >
@@ -85,8 +85,8 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
             </button>
           </li>
           <li className="nav-item" role="presentation">
-            <button 
-              className={`nav-link fw-bold ${view === "register" ? "active bg-success" : "text-dark"}`} 
+            <button
+              className={`nav-link fw-bold ${view === "register" ? "active bg-success" : "text-dark"}`}
               onClick={() => { setView("register"); setError(""); setSuccessMsg(""); }}
               type="button"
             >
@@ -110,7 +110,7 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
 
       {/* MASTER FORM */}
       <form onSubmit={handleSubmit}>
-        
+
         {/* Name fields show on Register */}
         {view === "register" && (
           <div className="row g-3 mb-3">
@@ -128,13 +128,13 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
         {/* Email Field - Changed to a controlled element linked to the email state */}
         <div className="mb-3">
           <label className="form-label small fw-bold text-muted">Email Address</label>
-          <input 
-            type="email" 
-            name="email" 
-            className="form-control" 
+          <input
+            type="email"
+            name="email"
+            className="form-control"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            required 
+            required
           />
         </div>
 
@@ -143,20 +143,20 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
           <div className="mb-4">
             <label className="form-label small fw-bold text-muted m-0">Password</label>
             <input type="password" name="password" className="form-control" required />
-            
+
             <div className="d-flex justify-content-between align-items-center mt-2">
               {/* Remember Me Checkbox Element */}
               <div className="d-flex align-items-center gap-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="rememberMe"
                   checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)} 
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="form-check-input m-0"
                   style={{ cursor: "pointer" }}
                 />
-                <label 
-                  htmlFor="rememberMe" 
+                <label
+                  htmlFor="rememberMe"
                   className="form-label small fw-bold text-muted m-0"
                   style={{ fontSize: ".9rem", paddingLeft: "2.5px", cursor: "pointer" }}
                 >
@@ -165,8 +165,8 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
               </div>
 
               {view === "login" && (
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn btn-link p-0 text-success text-decoration-none small fw-bold"
                   onClick={() => { setView("forgot"); setError(""); }}
                 >
@@ -178,29 +178,29 @@ export default function LoginRegisterForm({ countryCode, rememberedEmail }: { co
         )}
 
         {/* Dynamic Submit Button */}
-        <button 
-          type="submit" 
-          className="btn btn-success w-100 py-3 fw-bold mb-3" 
+        <button
+          type="submit"
+          className="btn btn-success w-100 py-3 fw-bold mb-3"
           disabled={isLoading || !!successMsg}
         >
-          {isLoading 
-            ? "PLEASE WAIT..." 
-            : view === "login" 
-              ? "LOG IN" 
-              : view === "register" 
-                ? "CREATE ACCOUNT" 
+          {isLoading
+            ? "PLEASE WAIT..."
+            : view === "login"
+              ? "LOG IN"
+              : view === "register"
+                ? "CREATE ACCOUNT"
                 : "SEND RESET LINK"}
         </button>
 
         {/* Back to Login Button */}
         {view === "forgot" && (
-           <button 
-             type="button" 
-             className="btn btn-light w-100 fw-bold border"
-             onClick={() => { setView("login"); setError(""); setSuccessMsg(""); }}
-           >
-             <i className="bi bi-arrow-left me-2"></i> Back to Login
-           </button>
+          <button
+            type="button"
+            className="btn btn-light w-100 fw-bold border"
+            onClick={() => { setView("login"); setError(""); setSuccessMsg(""); }}
+          >
+            <i className="bi bi-arrow-left me-2"></i> Back to Login
+          </button>
         )}
       </form>
     </div>

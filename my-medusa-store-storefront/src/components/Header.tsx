@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import SearchBar from "../app/[countryCode]/(main)/search/SearchBar"; // Update with actual path
 import CartButton from "@modules/layout/components/cart-button";
 import { signout } from "@lib/data/customer";
+import NotificationWrapper from "@modules/layout/components/notification-wrapper";
 
 export default async function Header({ customer, countryCode }: { customer: any; countryCode: string }) {
   let productTypes = [];
@@ -121,6 +122,7 @@ export default async function Header({ customer, countryCode }: { customer: any;
           </ul>
 
           <div className="d-flex align-items-center gap-2">
+            <NotificationWrapper />
             <CartButton />
             {customer ? (
               <form action={handleLogout}>

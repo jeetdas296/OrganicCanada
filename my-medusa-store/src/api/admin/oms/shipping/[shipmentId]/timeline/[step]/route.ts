@@ -209,5 +209,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
   }
 
+  // 🔔 Emit event so the notification system can pick it up
+  const eventBus = req.scope.resolve(Modules.EVENT_BUS)
+  await eventBus.emit({
+    name: "pal.timeline_step.completed",
+    data: { shipmentId, stepCode }
+  })
+
   return res.json({ success: true })
 }

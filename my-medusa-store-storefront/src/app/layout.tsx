@@ -3,6 +3,7 @@ import { Metadata } from "next"
 import "styles/globals.css"
 import "./template-style.css"
 import Footer from "components/footer"
+import { Toaster } from "@medusajs/ui"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body className="bg-light">
         <main>{children}</main>
         <Footer />
+        <Toaster />
       </body>
     </html>
   )
